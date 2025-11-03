@@ -6,10 +6,32 @@ export class Grid {
   ) {}
 
   static random(rows: number, cols: number): Grid {
-    const cells = Array.from(
-      { length: rows * cols },
-      () => Math.random() < 0.5
+    return new Grid(
+      rows,
+      cols,
+      Array.from({ length: rows * cols }, () => Math.random() < 0.5)
     );
+  }
+
+  static parse(s: string): Grid {
+    const lines = s.trim().split("/");
+    const rows = lines.length;
+    const cols = lines[0].length;
+    const cells: boolean[] = [];
+    for (const line of lines) {
+      if (line.length !== cols) {
+        throw new Error("Grid.parse: Inconsistent row lengths");
+      }
+      for (const ch of line) {
+        if (ch === "x") {
+          cells.push(true);
+        } else if (ch === "-") {
+          cells.push(false);
+        } else {
+          throw new Error(`Grid.parse: Invalid character: ${ch}`);
+        }
+      }
+    }
     return new Grid(rows, cols, cells);
   }
 
@@ -54,5 +76,23 @@ export class Grid {
     }
     result += "+\n";
     return result;
+  }
+
+  match(pattern: Grid): [number, number][] {
+    const matches: [number, number][] = [];
+    for (let r = 0; r <= this.rows - pattern.rows; r++) {
+      for (let c = 0; c <= this.cols - pattern.cols; c++) {
+        let isMatch = true;
+        for (let pr = 0; pr < pattern.rows; pr++) {
+          for (let pc = 0; pc < pattern.cols; pc++) {
+            isMatch &&= this.get(r + pr, c + pc) === pattern.get(pr, pc);
+          }
+        }
+        if (isMatch) {
+          matches.push([r, c]);
+        }
+      }
+    }
+    return matches;
   }
 }

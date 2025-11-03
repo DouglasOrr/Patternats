@@ -7,8 +7,8 @@ test("Grid init", () => {
   expect(grid.cells).toHaveLength(12);
 });
 
-test("Grid get, swap", () => {
-  const grid = new Grid(2, 2, [true, false, false, true]);
+test("Grid parse, get, swap", () => {
+  const grid = Grid.parse("x-/--");
   expect(grid.get(0, 0)).toBe(true);
   expect(grid.get(0, 1)).toBe(false);
 
@@ -17,4 +17,13 @@ test("Grid get, swap", () => {
   expect(grid.get(0, 1)).toBe(false);
   expect(swapped.get(0, 0)).toBe(false);
   expect(swapped.get(0, 1)).toBe(true);
+});
+
+test("Grid match", () => {
+  const grid = Grid.parse("xxx-/-x-x/x-x-");
+  const matches = grid.match(Grid.parse("x-/-x"));
+  expect(matches).toEqual([
+    [0, 2],
+    [1, 1],
+  ]);
 });

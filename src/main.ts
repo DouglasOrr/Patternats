@@ -3,16 +3,28 @@ import * as G from "./core/grid";
 class Game {
   grid: G.Grid;
 
-  constructor(rows: number, cols: number) {
-    this.grid = G.Grid.random(rows, cols);
+  constructor(
+    public rows: number,
+    public cols: number,
+    public patterns: G.Grid[]
+  ) {
+    this.grid = this.newGrid();
   }
 
-  newGrid() {
-    this.grid = G.Grid.random(this.grid.rows, this.grid.cols);
+  newGrid(): G.Grid {
+    this.grid = G.Grid.random(this.rows, this.cols);
+    this.updateScore();
+    return this.grid;
   }
 
-  swap(r0: number, c0: number, r1: number, c1: number) {
+  swap(r0: number, c0: number, r1: number, c1: number): void {
     this.grid = this.grid.swap(r0, c0, r1, c1);
+    this.updateScore();
+  }
+
+  updateScore(): void {
+    const matches = this.grid.match(this.patterns[0]);
+    console.log("Matches:", matches);
   }
 }
 
@@ -89,7 +101,7 @@ class Renderer {
 window.onload = () => {
   const canvas = document.getElementById("canvas-main") as HTMLCanvasElement;
   const ctx = canvas.getContext("2d")!;
-  const game = new Game(7, 7);
+  const game = new Game(7, 7, [G.Grid.parse("-x-/xxx/-x-")]);
   const renderer = new Renderer(ctx, game);
 
   document.getElementById("btn-new")!.addEventListener("click", () => {
