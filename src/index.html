@@ -2,12 +2,21 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Unnamed Game</title>
-    <script type="module" src="/main.ts"></script>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="stylesheet" href="style.css" />
+    <script type="module" src="main.ts"></script>
   </head>
   <body>
-    <canvas id="canvas-main" width="600" height="450"></canvas>
+    <div id="root">
+      <canvas id="canvas-main" width="450" height="450"></canvas>
+      <div id="sidebar">
+        <button id="btn-new">New Grid</button>
+        <button id="btn-undo">↶</button>
+        <button id="btn-redo">↷</button>
+        <!-- sidebar content / controls go here -->
+      </div>
+    </div>
   </body>
 </html>
