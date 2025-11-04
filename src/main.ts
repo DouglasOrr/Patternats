@@ -53,12 +53,16 @@ class Renderer {
 
     ctx.canvas.addEventListener("click", (event) => {
       const rect = ctx.canvas.getBoundingClientRect();
-      const row = Math.floor((event.clientY - rect.top) / this.cellSize);
-      const col = Math.floor((event.clientX - rect.left) / this.cellSize);
+      const idx = this.game.grid.index(
+        Math.floor((event.clientY - rect.top) / this.cellSize),
+        Math.floor((event.clientX - rect.left) / this.cellSize)
+      );
       if (this.swapSource === null) {
-        this.swapSource = this.game.grid.index(row, col);
+        this.swapSource = idx;
+      } else if (this.swapSource === idx) {
+        this.swapSource = null;
       } else {
-        this.game.swap(this.swapSource, this.game.grid.index(row, col));
+        this.game.swap(this.swapSource, idx);
         this.swapSource = null;
       }
       this.draw();
