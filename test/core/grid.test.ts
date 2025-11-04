@@ -10,20 +10,17 @@ test("Grid init", () => {
 test("Grid parse, get, swap", () => {
   const grid = Grid.parse("x-/--");
   expect(grid.get(0, 0)).toBe(true);
-  expect(grid.get(0, 1)).toBe(false);
+  expect(grid.get(1, 0)).toBe(false);
 
-  const swapped = grid.swap(0, 0, 0, 1);
+  const swapped = grid.swap(0, 2);
   expect(grid.get(0, 0)).toBe(true);
-  expect(grid.get(0, 1)).toBe(false);
+  expect(grid.get(1, 0)).toBe(false);
   expect(swapped.get(0, 0)).toBe(false);
-  expect(swapped.get(0, 1)).toBe(true);
+  expect(swapped.get(1, 0)).toBe(true);
 });
 
 test("Grid match", () => {
   const grid = Grid.parse("xxx-/-x-x/x-x-");
   const matches = grid.match(Grid.parse("x-/-x"));
-  expect(matches).toEqual([
-    [0, 2],
-    [1, 1],
-  ]);
+  expect(matches).toEqual([2, 5]);
 });

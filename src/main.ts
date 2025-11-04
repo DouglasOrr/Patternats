@@ -1,63 +1,68 @@
 import * as G from "./core/grid";
 
+type Listener = () => void;
+
 class Game {
   grid: G.Grid;
+  patterns: G.Grid[];
+  matches: number[][];
+  onUpdate: Listener[] = [];
 
-  constructor(
-    public rows: number,
-    public cols: number,
-    public patterns: G.Grid[]
-  ) {
-    this.grid = this.newGrid();
+  constructor(rows: number, cols: number, patterns: G.Grid[]) {
+    this.grid = G.Grid.random(rows, cols);
+    this.patterns = patterns;
+    this.matches = this.getMatches();
   }
 
-  newGrid(): G.Grid {
-    this.grid = G.Grid.random(this.rows, this.cols);
-    this.updateScore();
-    return this.grid;
+  private getMatches(): number[][] {
+    return this.patterns.map((pattern) => this.grid.match(pattern));
   }
 
-  swap(r0: number, c0: number, r1: number, c1: number): void {
-    this.grid = this.grid.swap(r0, c0, r1, c1);
-    this.updateScore();
+  newGrid(): void {
+    this.grid = G.Grid.random(this.grid.rows, this.grid.cols);
+    this.update();
   }
 
-  updateScore(): void {
-    const matches = this.grid.match(this.patterns[0]);
-    console.log("Matches:", matches);
+  swap(i: number, j: number): void {
+    this.grid = this.grid.swap(i, j);
+    this.update();
+  }
+
+  update(): void {
+    this.matches = this.getMatches();
+    for (const listener of this.onUpdate) {
+      listener();
+    }
   }
 }
 
 class Renderer {
-  private cellSize: number = 1;
-  private swapSource: [number, number] | null = null;
+  private readonly cellSize: number;
+  private swapSource: number | null = null;
 
   constructor(
     private readonly ctx: CanvasRenderingContext2D,
     private readonly game: Game
   ) {
-    this.update();
-    ctx.canvas.addEventListener("click", (event) => {
-      const rect = ctx.canvas.getBoundingClientRect();
-      const row = Math.floor((event.clientY - rect.top) / this.cellSize);
-      const col = Math.floor((event.clientX - rect.left) / this.cellSize);
-      if (this.swapSource === null) {
-        this.swapSource = [row, col];
-      } else {
-        const [fromRow, fromCol] = this.swapSource;
-        this.game.swap(fromRow, fromCol, row, col);
-        this.swapSource = null;
-      }
-      this.update();
-    });
-  }
-
-  update() {
     this.cellSize = Math.min(
       this.ctx.canvas.width / this.game.grid.cols,
       this.ctx.canvas.height / this.game.grid.rows
     );
     this.draw();
+    game.onUpdate.push(() => this.draw());
+
+    ctx.canvas.addEventListener("click", (event) => {
+      const rect = ctx.canvas.getBoundingClientRect();
+      const row = Math.floor((event.clientY - rect.top) / this.cellSize);
+      const col = Math.floor((event.clientX - rect.left) / this.cellSize);
+      if (this.swapSource === null) {
+        this.swapSource = this.game.grid.index(row, col);
+      } else {
+        this.game.swap(this.swapSource, this.game.grid.index(row, col));
+        this.swapSource = null;
+      }
+      this.draw();
+    });
   }
 
   draw() {
@@ -70,20 +75,34 @@ class Renderer {
       grid.cols * this.cellSize,
       grid.rows * this.cellSize
     );
-    for (let r = 0; r < grid.rows; r++) {
-      for (let c = 0; c < grid.cols; c++) {
-        this.ctx.fillStyle = grid.cells[r * grid.cols + c] ? "red" : "blue";
+
+    const overlay = Array.from({ length: grid.cells.length }, () => false);
+    for (const [n, pattern] of this.game.patterns.entries()) {
+      for (const i of this.game.matches[n]) {
+        for (let j = 0; j < pattern.rows * pattern.cols; j++) {
+          overlay[
+            i + Math.floor(j / pattern.cols) * grid.cols + (j % pattern.cols)
+          ] = true;
+        }
+      }
+    }
+
+    for (let i = 0; i < grid.cells.length; i++) {
+      const r = Math.floor(i / grid.cols);
+      const c = i % grid.cols;
+      if (grid.cells[i] !== null) {
+        this.ctx.fillStyle = !grid.cells[i]
+          ? "blue"
+          : overlay[i]
+          ? "yellow"
+          : "red";
         this.ctx.fillRect(
           c * this.cellSize + pad,
           r * this.cellSize + pad,
           this.cellSize - pad * 2,
           this.cellSize - pad * 2
         );
-        if (
-          this.swapSource !== null &&
-          this.swapSource[0] === r &&
-          this.swapSource[1] === c
-        ) {
+        if (this.swapSource === i) {
           this.ctx.strokeStyle = "yellow";
           this.ctx.lineWidth = 3;
           this.ctx.strokeRect(
@@ -102,10 +121,9 @@ window.onload = () => {
   const canvas = document.getElementById("canvas-main") as HTMLCanvasElement;
   const ctx = canvas.getContext("2d")!;
   const game = new Game(7, 7, [G.Grid.parse("-x-/xxx/-x-")]);
-  const renderer = new Renderer(ctx, game);
+  new Renderer(ctx, game);
 
   document.getElementById("btn-new")!.addEventListener("click", () => {
     game.newGrid();
-    renderer.update();
   });
 };
