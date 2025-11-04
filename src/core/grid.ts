@@ -1,17 +1,24 @@
+export enum Cell {
+  O = 0,
+  X = 1,
+}
+
 export class Grid {
   // Creation
 
   constructor(
     readonly rows: number,
     readonly cols: number,
-    readonly cells: boolean[]
+    readonly cells: Cell[]
   ) {}
 
   static random(rows: number, cols: number): Grid {
     return new Grid(
       rows,
       cols,
-      Array.from({ length: rows * cols }, () => Math.random() < 0.5)
+      Array.from({ length: rows * cols }, () =>
+        Math.random() < 0.5 ? Cell.X : Cell.O
+      )
     );
   }
 
@@ -19,16 +26,16 @@ export class Grid {
     const lines = s.trim().split("/");
     const rows = lines.length;
     const cols = lines[0].length;
-    const cells: boolean[] = [];
+    const cells: Cell[] = [];
     for (const line of lines) {
       if (line.length !== cols) {
         throw new Error("Grid.parse: Inconsistent row lengths");
       }
       for (const ch of line) {
         if (ch === "x") {
-          cells.push(true);
+          cells.push(Cell.X);
         } else if (ch === "-") {
-          cells.push(false);
+          cells.push(Cell.O);
         } else {
           throw new Error(`Grid.parse: Invalid character: ${ch}`);
         }
@@ -49,7 +56,7 @@ export class Grid {
     return r * this.cols + c;
   }
 
-  get(r: number, c: number): boolean {
+  get(r: number, c: number): Cell {
     return this.cells[this.index(r, c)];
   }
 
@@ -62,7 +69,7 @@ export class Grid {
     for (let r = 0; r < this.rows; r++) {
       result += "|";
       for (let c = 0; c < this.cols; c++) {
-        result += this.cells[r * this.cols + c] ? "x" : " ";
+        result += this.cells[r * this.cols + c] === Cell.X ? "x" : " ";
       }
       result += "|\n";
     }

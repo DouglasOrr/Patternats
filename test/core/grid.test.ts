@@ -1,4 +1,4 @@
-import { Grid } from "../../src/core/grid";
+import { Grid, Cell } from "../../src/core/grid";
 
 test("Grid init", () => {
   const grid = Grid.random(3, 4);
@@ -9,14 +9,14 @@ test("Grid init", () => {
 
 test("Grid parse, get, swap", () => {
   const grid = Grid.parse("x-/--");
-  expect(grid.get(0, 0)).toBe(true);
-  expect(grid.get(1, 0)).toBe(false);
+  expect(grid.get(0, 0)).toBe(Cell.X);
+  expect(grid.get(1, 0)).toBe(Cell.O);
 
   const swapped = grid.swap(0, 2);
-  expect(grid.get(0, 0)).toBe(true);
-  expect(grid.get(1, 0)).toBe(false);
-  expect(swapped.get(0, 0)).toBe(false);
-  expect(swapped.get(1, 0)).toBe(true);
+  expect(grid.get(0, 0)).toBe(Cell.X);
+  expect(grid.get(1, 0)).toBe(Cell.O);
+  expect(swapped.get(0, 0)).toBe(Cell.O);
+  expect(swapped.get(1, 0)).toBe(Cell.X);
 });
 
 test("Grid match", () => {

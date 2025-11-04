@@ -103,7 +103,7 @@ class Renderer {
           this.cellSize - pad * 2
         );
         if (this.swapSource === i) {
-          this.ctx.strokeStyle = "yellow";
+          this.ctx.strokeStyle = "#ff00ff";
           this.ctx.lineWidth = 3;
           this.ctx.strokeRect(
             c * this.cellSize + pad,
@@ -118,10 +118,12 @@ class Renderer {
 }
 
 window.onload = () => {
+  const game = new Game(7, 7, [
+    G.Grid.parse("-x-/xxx/-x-"),
+    G.Grid.parse("xx/xx"),
+  ]);
   const canvas = document.getElementById("canvas-main") as HTMLCanvasElement;
-  const ctx = canvas.getContext("2d")!;
-  const game = new Game(7, 7, [G.Grid.parse("-x-/xxx/-x-")]);
-  new Renderer(ctx, game);
+  new Renderer(canvas.getContext("2d")!, game);
 
   document.getElementById("btn-new")!.addEventListener("click", () => {
     game.newGrid();
