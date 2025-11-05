@@ -3,8 +3,8 @@ import * as V from "./core/view";
 
 window.onload = () => {
   const game = new G.Game(7, 7, [
-    G.Grid.parse("-x-/xxx/-x-"),
-    G.Grid.parse("xx/xx"),
+    { grid: G.Grid.parse("-x-/xxx/-x-"), points: 25 },
+    { grid: G.Grid.parse("xx/xx"), points: 2 },
   ]);
   V.start(game);
 };

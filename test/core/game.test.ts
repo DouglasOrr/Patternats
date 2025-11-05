@@ -19,27 +19,18 @@ test("Grid parse, get, swap", () => {
   expect(swapped.get(1, 0)).toBe(Cell.X);
 });
 
-test("Grid match", () => {
+test("Grid find", () => {
   const grid = Grid.parse("xxx-/-x-x/x-x-");
-  const matches = grid.match(Grid.parse("x-/-x"));
+  const matches = grid.find(Grid.parse("x-/-x"));
   expect(matches).toEqual([2, 5]);
 });
 
 test("Grid components", () => {
   const grid = Grid.parse("xxx-/-x-x/x-x-");
-  expect(grid.components).toEqual([[0, 1, 2, 5], [7], [8], [10]]);
-  expect(grid.cellToComponent).toEqual([
-    0,
-    0,
-    0,
-    null,
-    null,
-    0,
-    null,
-    1,
-    2,
-    null,
-    3,
-    null,
+  const c = grid.getComponents();
+  expect(c.components).toEqual([[0, 1, 2, 5], [7], [8], [10]]);
+  /* prettier-ignore */
+  expect(c.cellToComponent).toEqual([
+    0, 0, 0, null, null, 0, null, 1, 2, null, 3, null
   ]);
 });

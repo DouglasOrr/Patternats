@@ -4,6 +4,7 @@
 export enum Cell {
   O = 0,
   X = 1,
+  W = 2,
 }
 
 /**
@@ -13,44 +14,11 @@ export enum Cell {
  */
 export class Grid {
   // Creation
-  readonly components: number[][] = [];
-  readonly cellToComponent: (number | null)[];
-
   constructor(
     readonly rows: number,
     readonly cols: number,
     readonly cells: Cell[]
-  ) {
-    // Depth first search to find connected components of X cells
-    this.cellToComponent = new Array(rows * cols).fill(null);
-    for (let i = 0; i < rows * cols; i++) {
-      if (cells[i] == Cell.X && this.cellToComponent[i] === null) {
-        const component = this.components.length;
-        this.components.push([]);
-        const visit = (idx: number) => {
-          if (cells[idx] == Cell.X && this.cellToComponent[idx] === null) {
-            this.components[component].push(idx);
-            this.cellToComponent[idx] = component;
-            const r = Math.floor(idx / cols);
-            const c = idx % cols;
-            if (c >= 1) {
-              visit(idx - 1);
-            }
-            if (c <= cols - 2) {
-              visit(idx + 1);
-            }
-            if (r >= 1) {
-              visit(idx - cols);
-            }
-            if (r <= rows - 2) {
-              visit(idx + cols);
-            }
-          }
-        };
-        visit(i);
-      }
-    }
-  }
+  ) {}
 
   static random(rows: number, cols: number): Grid {
     return new Grid(
@@ -76,6 +44,8 @@ export class Grid {
           cells.push(Cell.X);
         } else if (ch === "-") {
           cells.push(Cell.O);
+        } else if (ch === "#") {
+          cells.push(Cell.W);
         } else {
           throw new Error(`Grid.parse: Invalid character: ${ch}`);
         }
@@ -109,7 +79,17 @@ export class Grid {
     for (let r = 0; r < this.rows; r++) {
       result += "|";
       for (let c = 0; c < this.cols; c++) {
-        result += this.cells[r * this.cols + c] === Cell.X ? "x" : " ";
+        switch (this.cells[r * this.cols + c]) {
+          case Cell.X:
+            result += "x";
+            break;
+          case Cell.O:
+            result += " ";
+            break;
+          case Cell.W:
+            result += "#";
+            break;
+        }
       }
       result += "|\n";
     }
@@ -129,7 +109,7 @@ export class Grid {
     return new Grid(this.rows, this.cols, cellsOut);
   }
 
-  match(pattern: Grid): number[] {
+  find(pattern: Grid): number[] {
     const matches: number[] = [];
     for (let i = 0; i < this.rows * this.cols; i++) {
       if (
@@ -140,7 +120,9 @@ export class Grid {
         for (let j = 0; j < pattern.rows * pattern.cols && isMatch; j++) {
           const pr = Math.floor(j / pattern.cols);
           const pc = j % pattern.cols;
-          isMatch &&= pattern.cells[j] === this.cells[i + pr * this.cols + pc];
+          const p = pattern.cells[j];
+          const c = this.cells[i + pr * this.cols + pc];
+          isMatch &&= !(p !== c && p !== Cell.W && c !== Cell.W);
         }
         if (isMatch) {
           matches.push(i);
@@ -149,24 +131,116 @@ export class Grid {
     }
     return matches;
   }
+
+  /** Depth first search to find connected components of X|W cells */
+  getComponents(): {
+    components: number[][];
+    cellToComponent: (number | null)[];
+  } {
+    const components: number[][] = [];
+    const cellToComponent = new Array(this.rows * this.cols).fill(null);
+    for (let i = 0; i < this.rows * this.cols; i++) {
+      if (this.cells[i] !== Cell.O && cellToComponent[i] === null) {
+        const component = components.length;
+        components.push([]);
+        const visit = (idx: number) => {
+          if (this.cells[idx] !== Cell.O && cellToComponent[idx] === null) {
+            components[component].push(idx);
+            cellToComponent[idx] = component;
+            const r = Math.floor(idx / this.cols);
+            const c = idx % this.cols;
+            if (c >= 1) {
+              visit(idx - 1);
+            }
+            if (c <= this.cols - 2) {
+              visit(idx + 1);
+            }
+            if (r >= 1) {
+              visit(idx - this.cols);
+            }
+            if (r <= this.rows - 2) {
+              visit(idx + this.cols);
+            }
+          }
+        };
+        visit(i);
+      }
+    }
+    return { components, cellToComponent };
+  }
 }
 
 export type Listener = () => void;
 
-export class Game {
+export interface Pattern {
   grid: Grid;
-  patterns: Grid[];
-  matches: number[][];
-  onUpdate: Listener[] = [];
+  points: number;
+}
 
-  constructor(rows: number, cols: number, patterns: Grid[]) {
-    this.grid = Grid.random(rows, cols);
-    this.patterns = patterns;
-    this.matches = this.getMatches();
+export interface Component {
+  indices: number[];
+  patterns: number[];
+  patternPositions: number[];
+  score: number;
+}
+
+export interface Score {
+  components: Component[];
+  cellToComponent: (number | null)[];
+}
+
+export function score(grid: Grid, patterns: Pattern[]): Score {
+  // Find components
+  const gridC = grid.getComponents();
+  const components: Component[] = gridC.components.map((indices) => ({
+    indices,
+    patterns: [],
+    patternPositions: [],
+    score: 0,
+  }));
+
+  // Add patterns to components
+  for (const [pIdx, pattern] of patterns.entries()) {
+    const matches = grid.find(pattern.grid);
+    for (const match of matches) {
+      const pComponents = new Set<number | null>();
+      for (let j = 0; j < pattern.grid.rows * pattern.grid.cols; j++) {
+        const r = Math.floor(j / pattern.grid.cols);
+        const c = j % pattern.grid.cols;
+        const cellIdx = match + r * grid.cols + c;
+        pComponents.add(gridC.cellToComponent[cellIdx]);
+      }
+      for (const component of pComponents) {
+        if (component !== null) {
+          components[component].patterns.push(pIdx);
+          components[component].patternPositions.push(match);
+        }
+      }
+    }
   }
 
-  private getMatches(): number[][] {
-    return this.patterns.map((pattern) => this.grid.match(pattern));
+  // Compute scores
+  for (const component of components) {
+    let score = 0;
+    for (const pIdx of component.patterns) {
+      score += patterns[pIdx].points + component.indices.length;
+    }
+    component.score = score;
+  }
+
+  return { components, cellToComponent: gridC.cellToComponent };
+}
+
+export class Game {
+  grid: Grid;
+  patterns: Pattern[];
+  score: Score;
+  onUpdate: Listener[] = [];
+
+  constructor(rows: number, cols: number, patterns: Pattern[]) {
+    this.grid = Grid.random(rows, cols);
+    this.patterns = patterns;
+    this.score = score(this.grid, this.patterns);
   }
 
   newGrid(): void {
@@ -180,7 +254,7 @@ export class Game {
   }
 
   update(): void {
-    this.matches = this.getMatches();
+    this.score = score(this.grid, this.patterns);
     for (const listener of this.onUpdate) {
       listener();
     }

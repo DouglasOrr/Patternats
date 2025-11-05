@@ -6,6 +6,7 @@ export function start(game: G.Game): void {
 
 class Renderer {
   private readonly ctx: CanvasRenderingContext2D;
+  private readonly scoreText: HTMLElement = document.getElementById("score")!;
   private readonly cellSize: number;
   private swapSource: number | null = null;
 
@@ -43,8 +44,37 @@ class Renderer {
 
   draw() {
     const pad = this.cellSize / 10;
-    this.ctx.fillStyle = "black";
     const grid = this.game.grid;
+
+    // Score
+    const sortedScores = this.game.score.components
+      .map((comp) => comp.score)
+      .filter((score) => score > 0)
+      .sort((a, b) => b - a);
+    const totalScore = sortedScores.reduce((sum, score) => sum + score, 0);
+    this.scoreText.innerText =
+      sortedScores.length >= 2
+        ? `Score: ${totalScore} = ${sortedScores.join(" + ")}`
+        : `Score: ${totalScore}`;
+
+    // Overlay
+    const overlay = new Array(grid.cells.length).fill(false);
+    for (const component of this.game.score.components) {
+      for (const i in component.patterns) {
+        const pattern = this.game.patterns[component.patterns[i]];
+        const pos = component.patternPositions[i];
+        for (let j = 0; j < pattern.grid.rows * pattern.grid.cols; j++) {
+          overlay[
+            pos +
+              Math.floor(j / pattern.grid.cols) * grid.cols +
+              (j % pattern.grid.cols)
+          ] = true;
+        }
+      }
+    }
+
+    // Background
+    this.ctx.fillStyle = "black";
     this.ctx.fillRect(
       0,
       0,
@@ -52,17 +82,7 @@ class Renderer {
       grid.rows * this.cellSize
     );
 
-    const overlay = new Array(grid.cells.length).fill(false);
-    for (const [n, pattern] of this.game.patterns.entries()) {
-      for (const i of this.game.matches[n]) {
-        for (let j = 0; j < pattern.rows * pattern.cols; j++) {
-          overlay[
-            i + Math.floor(j / pattern.cols) * grid.cols + (j % pattern.cols)
-          ] = true;
-        }
-      }
-    }
-
+    // Cells
     for (let i = 0; i < grid.cells.length; i++) {
       const r = Math.floor(i / grid.cols);
       const c = i % grid.cols;
