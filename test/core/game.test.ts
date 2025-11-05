@@ -1,4 +1,4 @@
-import { Grid, Cell } from "../../src/core/grid";
+import { Grid, Cell } from "../../src/core/game";
 
 test("Grid init", () => {
   const grid = Grid.random(3, 4);

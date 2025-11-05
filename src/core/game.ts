@@ -1,3 +1,6 @@
+/**
+ * Single cell type: empty, filled or wildcard.
+ */
 export enum Cell {
   O = 0,
   X = 1,
@@ -145,5 +148,41 @@ export class Grid {
       }
     }
     return matches;
+  }
+}
+
+export type Listener = () => void;
+
+export class Game {
+  grid: Grid;
+  patterns: Grid[];
+  matches: number[][];
+  onUpdate: Listener[] = [];
+
+  constructor(rows: number, cols: number, patterns: Grid[]) {
+    this.grid = Grid.random(rows, cols);
+    this.patterns = patterns;
+    this.matches = this.getMatches();
+  }
+
+  private getMatches(): number[][] {
+    return this.patterns.map((pattern) => this.grid.match(pattern));
+  }
+
+  newGrid(): void {
+    this.grid = Grid.random(this.grid.rows, this.grid.cols);
+    this.update();
+  }
+
+  swap(i: number, j: number): void {
+    this.grid = this.grid.swap(i, j);
+    this.update();
+  }
+
+  update(): void {
+    this.matches = this.getMatches();
+    for (const listener of this.onUpdate) {
+      listener();
+    }
   }
 }
