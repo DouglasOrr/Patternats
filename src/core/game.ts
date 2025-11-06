@@ -223,7 +223,10 @@ export function score(grid: Grid, patterns: Pattern[]): Score {
   for (const component of components) {
     let score = 0;
     for (const pIdx of component.patterns) {
-      score += patterns[pIdx].points + component.indices.length;
+      score += patterns[pIdx].points;
+    }
+    if (component.patterns.length >= 1) {
+      score += component.indices.length;
     }
     component.score = score;
   }
@@ -231,30 +234,66 @@ export function score(grid: Grid, patterns: Pattern[]): Score {
   return { components, cellToComponent: gridC.cellToComponent };
 }
 
-export class Game {
+export interface GameState {
   grid: Grid;
-  patterns: Pattern[];
   score: Score;
-  onUpdate: Listener[] = [];
+  // TODO: action
+}
+
+export class Game {
+  readonly patterns: Pattern[];
+  readonly onUpdate: Listener[] = [];
+  readonly state: GameState[];
+  stateIndex: number = 0;
 
   constructor(rows: number, cols: number, patterns: Pattern[]) {
-    this.grid = Grid.random(rows, cols);
     this.patterns = patterns;
-    this.score = score(this.grid, this.patterns);
+    const grid = Grid.random(rows, cols);
+    this.state = [{ grid, score: score(grid, patterns) }];
+  }
+
+  get grid(): Grid {
+    return this.state[this.stateIndex].grid;
+  }
+
+  get score(): Score {
+    return this.state[this.stateIndex].score;
+  }
+
+  private push(grid: Grid): void {
+    this.state.splice(this.stateIndex + 1);
+    this.state.push({ grid, score: score(grid, this.patterns) });
+    this.stateIndex++;
+    this.update();
+  }
+
+  // Actions
+
+  undo(): void {
+    if (this.stateIndex > 0) {
+      this.stateIndex--;
+      this.update();
+    }
+  }
+
+  redo(): void {
+    if (this.stateIndex < this.state.length - 1) {
+      this.stateIndex++;
+      this.update();
+    }
   }
 
   newGrid(): void {
-    this.grid = Grid.random(this.grid.rows, this.grid.cols);
-    this.update();
+    const grid = Grid.random(this.grid.rows, this.grid.cols);
+    this.stateIndex = -1; // never undo-able
+    this.push(grid);
   }
 
   swap(i: number, j: number): void {
-    this.grid = this.grid.swap(i, j);
-    this.update();
+    this.push(this.grid.swap(i, j));
   }
 
   update(): void {
-    this.score = score(this.grid, this.patterns);
     for (const listener of this.onUpdate) {
       listener();
     }

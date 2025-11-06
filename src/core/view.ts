@@ -6,7 +6,16 @@ export function start(game: G.Game): void {
 
 class Renderer {
   private readonly ctx: CanvasRenderingContext2D;
-  private readonly scoreText: HTMLElement = document.getElementById("score")!;
+  private readonly textScore: HTMLElement = document.getElementById("score")!;
+  private readonly btnNew: HTMLButtonElement = document.getElementById(
+    "btn-new"
+  )! as HTMLButtonElement;
+  private readonly btnUndo: HTMLButtonElement = document.getElementById(
+    "btn-undo"
+  )! as HTMLButtonElement;
+  private readonly btnRedo: HTMLButtonElement = document.getElementById(
+    "btn-redo"
+  )! as HTMLButtonElement;
   private readonly cellSize: number;
   private swapSource: number | null = null;
 
@@ -36,9 +45,14 @@ class Renderer {
       }
       this.draw();
     });
-
-    document.getElementById("btn-new")!.addEventListener("click", () => {
+    this.btnNew.addEventListener("click", () => {
       game.newGrid();
+    });
+    this.btnUndo.addEventListener("click", () => {
+      game.undo();
+    });
+    this.btnRedo.addEventListener("click", () => {
+      game.redo();
     });
   }
 
@@ -52,10 +66,14 @@ class Renderer {
       .filter((score) => score > 0)
       .sort((a, b) => b - a);
     const totalScore = sortedScores.reduce((sum, score) => sum + score, 0);
-    this.scoreText.innerText =
+    this.textScore.innerText =
       sortedScores.length >= 2
         ? `Score: ${totalScore} = ${sortedScores.join(" + ")}`
         : `Score: ${totalScore}`;
+
+    // Buttons
+    this.btnUndo.disabled = this.game.stateIndex === 0;
+    this.btnRedo.disabled = this.game.stateIndex === this.game.state.length - 1;
 
     // Overlay
     const overlay = new Array(grid.cells.length).fill(false);
