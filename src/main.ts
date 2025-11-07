@@ -6,8 +6,8 @@ window.onload = () => {
     9,
     9,
     [
-      { grid: G.Grid.parse("-x-/xxx/-x-"), points: 25 },
-      { grid: G.Grid.parse("xx/xx"), points: 2 },
+      new G.Pattern(G.Grid.parse("-x-/xxx/-x-"), 25),
+      new G.Pattern(G.Grid.parse("xx/xx"), 4),
     ],
     /*targetScore=*/ 100
   );

@@ -109,29 +109,6 @@ export class Grid {
     return new Grid(this.rows, this.cols, cellsOut);
   }
 
-  find(pattern: Grid): number[] {
-    const matches: number[] = [];
-    for (let i = 0; i < this.rows * this.cols; i++) {
-      if (
-        Math.floor(i / this.cols) + pattern.rows <= this.rows &&
-        (i % this.cols) + pattern.cols <= this.cols
-      ) {
-        let isMatch = true;
-        for (let j = 0; j < pattern.rows * pattern.cols && isMatch; j++) {
-          const pr = Math.floor(j / pattern.cols);
-          const pc = j % pattern.cols;
-          const p = pattern.cells[j];
-          const c = this.cells[i + pr * this.cols + pc];
-          isMatch &&= !(p !== c && p !== Cell.W && c !== Cell.W);
-        }
-        if (isMatch) {
-          matches.push(i);
-        }
-      }
-    }
-    return matches;
-  }
-
   /** Depth first search to find connected components of X|W cells */
   getComponents(): {
     components: number[][];
@@ -170,11 +147,34 @@ export class Grid {
   }
 }
 
-export type Listener = () => void;
+// Pattern and scoring
 
-export interface Pattern {
-  grid: Grid;
-  points: number;
+export class Pattern {
+  constructor(readonly grid: Grid, readonly points: number) {}
+
+  find(grid: Grid): number[] {
+    const matches: number[] = [];
+    const pattern = this.grid;
+    for (let i = 0; i < grid.rows * grid.cols; i++) {
+      if (
+        Math.floor(i / grid.cols) + pattern.rows <= grid.rows &&
+        (i % grid.cols) + pattern.cols <= grid.cols
+      ) {
+        let isMatch = true;
+        for (let j = 0; j < pattern.rows * pattern.cols && isMatch; j++) {
+          const pr = Math.floor(j / pattern.cols);
+          const pc = j % pattern.cols;
+          const p = pattern.cells[j];
+          const c = grid.cells[i + pr * grid.cols + pc];
+          isMatch &&= !(p !== c && p !== Cell.W && c !== Cell.W);
+        }
+        if (isMatch) {
+          matches.push(i);
+        }
+      }
+    }
+    return matches;
+  }
 }
 
 export interface Component {
@@ -201,7 +201,7 @@ export function score(grid: Grid, patterns: Pattern[]): Score {
 
   // Add patterns to components
   for (const [pIdx, pattern] of patterns.entries()) {
-    const matches = grid.find(pattern.grid);
+    const matches = pattern.find(grid);
     for (const match of matches) {
       const pComponents = new Set<number | null>();
       for (let j = 0; j < pattern.grid.rows * pattern.grid.cols; j++) {
@@ -234,11 +234,15 @@ export function score(grid: Grid, patterns: Pattern[]): Score {
   return { components, cellToComponent: gridC.cellToComponent };
 }
 
+// Game state
+
 export interface GameState {
   grid: Grid;
   score: Score;
   // TODO: action
 }
+
+export type Listener = () => void;
 
 export class Game {
   readonly patterns: Pattern[];

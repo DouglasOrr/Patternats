@@ -1,4 +1,4 @@
-import { Grid, Cell } from "../../src/core/game";
+import { Grid, Cell, Pattern } from "../../src/core/game";
 
 test("Grid init", () => {
   const grid = Grid.random(3, 4);
@@ -19,13 +19,7 @@ test("Grid parse, get, swap", () => {
   expect(swapped.get(1, 0)).toBe(Cell.X);
 });
 
-test("Grid find", () => {
-  const grid = Grid.parse("xxx-/-x-x/x-x-");
-  const matches = grid.find(Grid.parse("x-/-x"));
-  expect(matches).toEqual([2, 5]);
-});
-
-test("Grid components", () => {
+test("Grid getComponents", () => {
   const grid = Grid.parse("xxx-/-x-x/x-x-");
   const c = grid.getComponents();
   expect(c.components).toEqual([[0, 1, 2, 5], [7], [8], [10]]);
@@ -33,4 +27,10 @@ test("Grid components", () => {
   expect(c.cellToComponent).toEqual([
     0, 0, 0, null, null, 0, null, 1, 2, null, 3, null
   ]);
+});
+
+test("Pattern find", () => {
+  const grid = Grid.parse("xxx-/-x-x/x-x-");
+  const matches = new Pattern(Grid.parse("x-/-x"), 0).find(grid);
+  expect(matches).toEqual([2, 5]);
 });
