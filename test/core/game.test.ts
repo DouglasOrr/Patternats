@@ -1,4 +1,4 @@
-import { Grid, Cell, Pattern } from "../../src/core/game";
+import { SwapAction, Grid, Cell, Pattern } from "../../src/core/game";
 
 test("Grid init", () => {
   const grid = Grid.random(3, 4);
@@ -7,16 +7,10 @@ test("Grid init", () => {
   expect(grid.cells).toHaveLength(12);
 });
 
-test("Grid parse, get, swap", () => {
+test("Grid parse, get", () => {
   const grid = Grid.parse("x-/--");
   expect(grid.get(0, 0)).toBe(Cell.X);
   expect(grid.get(1, 0)).toBe(Cell.O);
-
-  const swapped = grid.swap(0, 2);
-  expect(grid.get(0, 0)).toBe(Cell.X);
-  expect(grid.get(1, 0)).toBe(Cell.O);
-  expect(swapped.get(0, 0)).toBe(Cell.O);
-  expect(swapped.get(1, 0)).toBe(Cell.X);
 });
 
 test("Grid getComponents", () => {
@@ -27,6 +21,16 @@ test("Grid getComponents", () => {
   expect(c.cellToComponent).toEqual([
     0, 0, 0, null, null, 0, null, 1, 2, null, 3, null
   ]);
+});
+
+test("Action swap", () => {
+  const grid = Grid.parse("x-/--");
+  const action = new SwapAction();
+  const swapped = action.execute(grid, { i: 0, j: 2 });
+  expect(grid.get(0, 0)).toBe(Cell.X);
+  expect(grid.get(1, 0)).toBe(Cell.O);
+  expect(swapped.get(0, 0)).toBe(Cell.O);
+  expect(swapped.get(1, 0)).toBe(Cell.X);
 });
 
 test("Pattern find", () => {

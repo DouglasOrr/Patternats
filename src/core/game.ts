@@ -54,6 +54,13 @@ export class Grid {
     return new Grid(rows, cols, cells);
   }
 
+  replace(cells: Cell[]): Grid {
+    if (cells.length !== this.cells.length) {
+      throw new Error("Grid.replace: Invalid cells length");
+    }
+    return new Grid(this.rows, this.cols, cells);
+  }
+
   // Utility
 
   index(r: number, c: number): number {
@@ -101,14 +108,6 @@ export class Grid {
     return result;
   }
 
-  // Core
-
-  swap(i: number, j: number): Grid {
-    const cellsOut = this.cells.slice();
-    [cellsOut[i], cellsOut[j]] = [cellsOut[j], cellsOut[i]];
-    return new Grid(this.rows, this.cols, cellsOut);
-  }
-
   /** Depth first search to find connected components of X|W cells */
   getComponents(): {
     components: number[][];
@@ -144,6 +143,22 @@ export class Grid {
       }
     }
     return { components, cellToComponent };
+  }
+}
+
+// Actions
+
+export interface Action {
+  name: string;
+  execute(grid: Grid, arg: any): Grid;
+}
+
+export class SwapAction implements Action {
+  name = "swap";
+  execute(grid: Grid, arg: { i: number; j: number }): Grid {
+    const cellsOut = grid.cells.slice();
+    [cellsOut[arg.i], cellsOut[arg.j]] = [cellsOut[arg.j], cellsOut[arg.i]];
+    return grid.replace(cellsOut);
   }
 }
 
@@ -239,30 +254,33 @@ export function score(grid: Grid, patterns: Pattern[]): Score {
 export interface GameState {
   grid: Grid;
   score: Score;
-  // TODO: action
+  action: number | null;
 }
 
 export type Listener = () => void;
 
 export class Game {
   readonly patterns: Pattern[];
+  readonly actions: Action[];
   readonly onUpdate: Listener[] = [];
-  readonly state: GameState[];
   readonly maxFrames: number = 3;
   readonly targetScore: number;
+  state: GameState[];
   stateIndex: number = 0;
   frame: number = 0;
   roundScore: number = 0;
 
   constructor(
+    patterns: Pattern[],
+    actions: Action[],
     rows: number,
     cols: number,
-    patterns: Pattern[],
     targetScore: number
   ) {
     this.patterns = patterns;
+    this.actions = actions;
     const grid = Grid.random(rows, cols);
-    this.state = [{ grid, score: score(grid, patterns) }];
+    this.state = [{ grid, score: score(grid, patterns), action: null }];
     this.targetScore = targetScore;
   }
 
@@ -274,21 +292,45 @@ export class Game {
     return this.state[this.stateIndex].score;
   }
 
-  status(): "playing" | "win" | "lose" {
+  get availableActions(): [Action, number][] {
+    return this.actions
+      .map((action, idx) => [action, idx] as [Action, number])
+      .filter(([, idx]) => {
+        for (let i = 0; i <= this.stateIndex; i++) {
+          if (this.state[i].action === idx) {
+            return false;
+          }
+        }
+        return true;
+      });
+  }
+
+  get status(): "playing" | "win" | "lose" {
     if (this.frame >= this.maxFrames || this.roundScore >= this.targetScore) {
       return this.roundScore >= this.targetScore ? "win" : "lose";
     }
     return "playing";
   }
 
-  private push(grid: Grid): void {
-    this.state.splice(this.stateIndex + 1);
-    this.state.push({ grid, score: score(grid, this.patterns) });
-    this.stateIndex++;
-    this.update();
+  update(): void {
+    for (const listener of this.onUpdate) {
+      listener();
+    }
   }
 
   // Actions
+
+  execute(action: number, arg: any): void {
+    for (let i = 0; i <= this.stateIndex; i++) {
+      if (this.state[i].action === action) {
+        throw new Error("Cannot execute action that has already been used");
+      }
+    }
+    const grid = this.actions[action].execute(this.grid, arg);
+    this.state.splice(++this.stateIndex);
+    this.state.push({ grid, score: score(grid, this.patterns), action });
+    this.update();
+  }
 
   undo(): void {
     if (this.stateIndex > 0) {
@@ -303,6 +345,8 @@ export class Game {
       this.update();
     }
   }
+
+  // Irreversible actions
 
   submit(): void {
     const frameScore = this.score.components.reduce(
@@ -324,18 +368,10 @@ export class Game {
   }
 
   newGrid(): void {
+    // Not undo-able, but (implicitly) refunds actions
     const grid = Grid.random(this.grid.rows, this.grid.cols);
-    this.stateIndex = -1; // never undo-able
-    this.push(grid);
-  }
-
-  swap(i: number, j: number): void {
-    this.push(this.grid.swap(i, j));
-  }
-
-  update(): void {
-    for (const listener of this.onUpdate) {
-      listener();
-    }
+    this.stateIndex = 0;
+    this.state = [{ grid, score: score(grid, this.patterns), action: null }];
+    this.update();
   }
 }

@@ -22,6 +22,9 @@ class Renderer {
   private readonly btnRedo: HTMLButtonElement = document.getElementById(
     "btn-redo"
   )! as HTMLButtonElement;
+  private readonly divActions: HTMLElement =
+    document.getElementById("div-actions")!;
+
   private readonly cellSize: number;
   private swapSource: number | null = null;
 
@@ -36,6 +39,12 @@ class Renderer {
     game.onUpdate.push(() => this.draw());
 
     this.ctx.canvas.addEventListener("click", (event) => {
+      const swapActions = this.game.availableActions.filter(
+        ([a, _]) => a instanceof G.SwapAction
+      );
+      if (!swapActions.length) {
+        return;
+      }
       const rect = this.ctx.canvas.getBoundingClientRect();
       const idx = this.game.grid.index(
         Math.floor((event.clientY - rect.top) / this.cellSize),
@@ -46,7 +55,7 @@ class Renderer {
       } else if (this.swapSource === idx) {
         this.swapSource = null;
       } else {
-        this.game.swap(this.swapSource, idx);
+        this.game.execute(swapActions[0][1], { i: this.swapSource, j: idx });
         this.swapSource = null;
       }
       this.draw();
@@ -76,7 +85,7 @@ class Renderer {
       ` ${Math.max(0, this.game.targetScore - this.game.roundScore)} nnats (${
         this.game.roundScore
       })`;
-    this.textRoundScore.dataset.status = this.game.status();
+    this.textRoundScore.dataset.status = this.game.status;
 
     // Frame score
     const sortedScores = this.game.score.components
