@@ -8,7 +8,7 @@ export function start(game: G.Game): void {
   );
 }
 
-type Box = { left: number; right: number; bottom: number; top: number };
+// Utility
 
 class Logger {
   private trigger: boolean = false;
@@ -28,36 +28,63 @@ class Logger {
 }
 const LOG = new Logger();
 
-class GridView {
-  private readonly mesh: THREE.InstancedMesh;
-  private readonly frameAttr: THREE.InstancedBufferAttribute;
+type Box = { left: number; right: number; bottom: number; top: number };
 
-  constructor(private readonly game: G.Game, scene: THREE.Scene) {
-    const texture = new THREE.TextureLoader().load("img/cells.png");
+// Views
+
+class InstancedSpriteSheet {
+  private readonly mesh: THREE.InstancedMesh;
+  private readonly tileAttr: THREE.InstancedBufferAttribute;
+  private readonly tileArray: Float32Array;
+  private readonly tintAttr: THREE.InstancedBufferAttribute;
+  private readonly tintArray: Float32Array;
+
+  // Temporaries
+  private readonly mat = new THREE.Matrix4();
+  private readonly pos = new THREE.Vector3();
+  private readonly quat = new THREE.Quaternion();
+  private readonly scale = new THREE.Vector3();
+
+  constructor(
+    texturePath: string,
+    tiles: [number, number],
+    instanceCount: number,
+    scene: THREE.Scene
+  ) {
     const material = new THREE.ShaderMaterial({
       uniforms: {
-        map: { value: texture },
+        tex: {
+          value: new THREE.TextureLoader().load(
+            texturePath,
+            undefined,
+            undefined,
+            (err) => console.error(`Error loading texture ${texturePath}`, err)
+          ),
+        },
+        texTiles: { value: new THREE.Vector2(tiles[0], tiles[1]) },
       },
       vertexShader: `
-        attribute float tile;
-        varying float vTile;
+        attribute vec2 tile;
+        attribute vec3 tint;
+        uniform vec2 texTiles;
+
         varying vec2 vUv;
+        varying vec3 vTint;
+
         void main() {
-          vUv = uv;
-          vTile = tile;
+          vUv = (uv + tile) / texTiles;
+          vTint = tint;
           gl_Position = projectionMatrix * viewMatrix * instanceMatrix * vec4(position, 1.0);
         }
       `,
       fragmentShader: `
-        uniform sampler2D map;
+        uniform sampler2D tex;
         varying vec2 vUv;
-        varying float vTile;
+        varying vec3 vTint;
         void main() {
-          vec2 uv = vUv;
-          uv.y = uv.y / 3.0 + vTile;
-          vec4 c = texture2D(map, uv);
+          vec4 c = texture2D(tex, vUv);
           if (c.a < 0.01) discard;
-          gl_FragColor = c;
+          gl_FragColor = vec4(c.rgb * vTint, c.a);
         }
       `,
       transparent: true,
@@ -65,56 +92,126 @@ class GridView {
     this.mesh = new THREE.InstancedMesh(
       new THREE.PlaneGeometry(1, 1),
       material,
-      game.grid.cells.length
-    );
-    this.frameAttr = new THREE.InstancedBufferAttribute(
-      new Float32Array(this.mesh.count).fill(0),
-      /*itemSize*/ 1
+      instanceCount
     );
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    this.mesh.geometry.setAttribute("tile", this.frameAttr);
+
+    this.tileArray = new Float32Array(2 * this.mesh.count).fill(0);
+    this.tileAttr = new THREE.InstancedBufferAttribute(this.tileArray, 2);
+    this.tileAttr.setUsage(THREE.DynamicDrawUsage);
+    this.mesh.geometry.setAttribute("tile", this.tileAttr);
+
+    this.tintArray = new Float32Array(3 * this.mesh.count).fill(1);
+    this.tintAttr = new THREE.InstancedBufferAttribute(this.tintArray, 3);
+    this.tintAttr.setUsage(THREE.DynamicDrawUsage);
+    this.mesh.geometry.setAttribute("tint", this.tintAttr);
+
     scene.add(this.mesh);
+  }
+
+  get instanceCount(): number {
+    return this.mesh.count;
+  }
+
+  update(
+    index: number,
+    pos: [number, number],
+    scale: [number, number],
+    rot: number,
+    tile: [number, number],
+    tint: [number, number, number]
+  ): void {
+    this.mat.compose(
+      this.pos.set(pos[0], pos[1], 0),
+      this.quat.setFromAxisAngle(new THREE.Vector3(0, 0, -1), rot),
+      this.scale.set(scale[0], scale[1], 1)
+    );
+    this.mesh.setMatrixAt(index, this.mat);
+    this.tileArray[index * 2] = tile[0];
+    this.tileArray[index * 2 + 1] = tile[1];
+    this.tintArray[index * 3] = tint[0];
+    this.tintArray[index * 3 + 1] = tint[1];
+    this.tintArray[index * 3 + 2] = tint[2];
+    this.mesh.instanceMatrix.needsUpdate = true;
+    this.tileAttr.needsUpdate = true;
+    this.tintAttr.needsUpdate = true;
+  }
+}
+
+class GridView {
+  private readonly cells: InstancedSpriteSheet;
+  private readonly carets: InstancedSpriteSheet;
+
+  constructor(private readonly game: G.Game, scene: THREE.Scene) {
+    this.cells = new InstancedSpriteSheet(
+      "img/cells.png",
+      [1, 3],
+      game.grid.cells.length,
+      scene
+    );
+    this.carets = new InstancedSpriteSheet(
+      "img/caret.png",
+      [1, 1],
+      2 * (game.grid.rows + game.grid.cols),
+      scene
+    );
   }
 
   // Update instance matrices to match layout.grid and the current game.grid
   update(bounds: Box): void {
+    const markSizeRatio = 0.5;
+    const caretColor: [number, number, number] = [0.3, 0.4, 0.3];
+
     const grid = this.game.grid;
     const cellSize = Math.min(
-      (bounds.right - bounds.left) / grid.cols,
-      (bounds.top - bounds.bottom) / grid.rows
+      (bounds.right - bounds.left) / (grid.cols + 2),
+      (bounds.top - bounds.bottom) / (grid.rows + 2)
     );
+    const markSize = markSizeRatio * cellSize;
 
-    const frameArr = this.frameAttr.array as Float32Array;
-    const mat = new THREE.Matrix4();
-    const pos = new THREE.Vector3();
-    const scale = new THREE.Vector3(cellSize, cellSize, 1);
+    // Cells
     for (let i = 0; i < grid.cells.length; i++) {
-      // Position
       const row = Math.floor(i / grid.cols);
       const col = i % grid.cols;
-      const x = bounds.left + (col + 0.5) * cellSize;
-      const y = bounds.bottom + (row + 0.5) * cellSize;
-      mat.compose(pos.set(x, y, 0), new THREE.Quaternion(), scale);
-      this.mesh.setMatrixAt(i, mat);
-
-      // Frame
-      const cell = grid.cells[i];
-      switch (cell) {
-        case G.Cell.O:
-          frameArr[i] = 2 / 3;
-          break;
-        case G.Cell.X:
-          frameArr[i] = 1 / 3;
-          break;
-        case G.Cell.W:
-          frameArr[i] = 0 / 3;
-          break;
-      }
+      const x = bounds.left + (col + 1.5) * cellSize;
+      const y = bounds.bottom + (row + 1.5) * cellSize;
+      this.cells.update(
+        i,
+        /*pos*/ [x, y],
+        /*scale*/ [markSize, markSize],
+        /*rot*/ 0,
+        /*tile*/ [0, 2 - grid.cells[i]],
+        /*tint*/ [1, 1, 1]
+      );
     }
-    this.mesh.instanceMatrix.needsUpdate = true;
-    this.frameAttr.needsUpdate = true;
+
+    // Carets
+    let caretIndex = 0;
+    const addCaret = (row: number, col: number, rot: number) => {
+      this.carets.update(
+        caretIndex++,
+        /*pos*/ [
+          bounds.left + (col + 1.5) * cellSize,
+          bounds.bottom + (row + 1.5) * cellSize,
+        ],
+        /*scale*/ [markSize, 0.5 * markSize],
+        /*rot*/ rot,
+        /*tile*/ [0, 0],
+        /*tint*/ caretColor
+      );
+    };
+    for (let i = 0; i < grid.cols; i++) {
+      addCaret(-1, i, 0);
+      addCaret(grid.rows, i, Math.PI);
+    }
+    for (let i = 0; i < grid.rows; i++) {
+      addCaret(i, -1, Math.PI / 2);
+      addCaret(i, grid.cols, -Math.PI / 2);
+    }
   }
 }
+
+// Core rendering
 
 class Renderer {
   private readonly renderer: THREE.WebGLRenderer;
