@@ -30,6 +30,10 @@ const LOG = new Logger();
 
 type Box = { left: number; right: number; bottom: number; top: number };
 
+function backgroundColor(): THREE.Color {
+  return new THREE.Color(getComputedStyle(document.body).backgroundColor);
+}
+
 // Views
 
 class InstancedSpriteSheet {
@@ -211,6 +215,74 @@ class GridView {
   }
 }
 
+class ProgressView {
+  private readonly outline: THREE.Mesh;
+  private readonly background: THREE.Mesh;
+  private readonly fill0: THREE.Mesh;
+  private readonly fill1: THREE.Mesh;
+
+  constructor(private readonly game: G.Game, scene: THREE.Scene) {
+    this.outline = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 1),
+      new THREE.MeshBasicMaterial({ color: 0x161616 })
+    );
+    this.background = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 1),
+      new THREE.MeshBasicMaterial({ color: backgroundColor().getHex() })
+    );
+    this.fill0 = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 1),
+      new THREE.MeshBasicMaterial({ color: 0x610003 })
+    );
+    this.fill1 = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 1),
+      new THREE.MeshBasicMaterial({ color: 0xb37e1d })
+    );
+    this.outline.position.z = 0;
+    this.background.position.z = 0.01;
+    this.fill0.position.z = this.fill1.position.z = 0.02;
+    scene.add(this.outline, this.background, this.fill0, this.fill1);
+  }
+
+  update(bounds: Box): void {
+    // Basic layout
+    const w = bounds.right - bounds.left;
+    const h = 0.85 * (bounds.top - bounds.bottom);
+    const inset = 0.2 * Math.min(w, h);
+    const innerW = w - 2 * inset;
+    const innerH = h - 2 * inset;
+    const cx = (bounds.left + bounds.right) / 2;
+    const cy = (bounds.bottom + bounds.top) / 2;
+
+    // Progress
+    const progress01 = Math.max(
+      0,
+      this.game.targetScore - this.game.roundScore
+    );
+    const progress0 = Math.max(0, progress01 - this.game.score.total);
+    const h0 = (innerH * progress0) / this.game.targetScore;
+    const h1 = (innerH * (progress01 - progress0)) / this.game.targetScore;
+
+    // Set positions
+    this.outline.position.set(cx, cy, this.outline.position.z);
+    this.outline.scale.set(w, h, 1);
+    this.background.position.set(cx, cy, this.background.position.z);
+    this.background.scale.set(innerW, innerH, 1);
+    this.fill0.position.set(
+      cx,
+      cy - innerH / 2 + h0 / 2,
+      this.fill0.position.z
+    );
+    this.fill0.scale.set(innerW, h0, 1);
+    this.fill1.position.set(
+      cx,
+      cy - innerH / 2 + h0 + h1 / 2,
+      this.fill1.position.z
+    );
+    this.fill1.scale.set(innerW, h1, 1);
+  }
+}
+
 // Core rendering
 
 class Renderer {
@@ -220,6 +292,7 @@ class Renderer {
   private lastTime: number | null = null;
 
   private readonly gridView: GridView;
+  private readonly progressView: ProgressView;
 
   constructor(private readonly game: G.Game, canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -228,15 +301,22 @@ class Renderer {
     this.camera.far = 1000;
     this.camera.position.z = 10;
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(
-      getComputedStyle(document.body).backgroundColor
-    );
+    this.scene.background = backgroundColor();
     this.onResize();
     window.addEventListener("resize", this.onResize.bind(this));
     requestAnimationFrame(this.onAnimate.bind(this));
 
     // Views
     this.gridView = new GridView(this.game, this.scene);
+    this.progressView = new ProgressView(this.game, this.scene);
+
+    // Keyboard controls
+    window.addEventListener("keydown", (e) => {
+      if (e.key === " ") {
+        e.preventDefault();
+        this.game.submit();
+      }
+    });
   }
 
   private onResize() {
@@ -262,6 +342,7 @@ class Renderer {
     // Update views
     const layout = this.topLevelLayout();
     this.gridView.update(layout.grid);
+    this.progressView.update(layout.progress);
 
     // Render
     this.renderer.render(this.scene, this.camera);
@@ -269,12 +350,13 @@ class Renderer {
     LOG.tick();
   }
 
-  private topLevelLayout(): { grid: Box; panel: Box } {
+  private topLevelLayout(): { grid: Box; progress: Box; panel: Box } {
     const w = this.camera.right - this.camera.left;
     const h = this.camera.top - this.camera.bottom;
     const pad = 0.02 * w;
-    const panelW = 0.3 * w;
-    const gridSize = Math.min(h - 2 * pad, w - panelW - 3 * pad);
+    const panelW = 0.25 * w;
+    const progressW = Math.min(0.03 * w, 0.03 * (h - 2 * pad));
+    const gridSize = Math.min(h - 2 * pad, w - panelW - progressW - 4 * pad);
     const y = h / 2 - gridSize / 2;
     return {
       grid: {
@@ -283,9 +365,15 @@ class Renderer {
         bottom: y,
         top: y + gridSize,
       },
-      panel: {
+      progress: {
         left: pad + gridSize + pad,
-        right: pad + gridSize + pad + panelW,
+        right: pad + gridSize + pad + progressW,
+        bottom: y,
+        top: y + gridSize,
+      },
+      panel: {
+        left: pad + gridSize + pad + progressW + pad,
+        right: pad + gridSize + pad + progressW + pad + panelW,
         bottom: y,
         top: y + gridSize,
       },
