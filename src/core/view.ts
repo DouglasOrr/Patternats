@@ -34,6 +34,48 @@ function backgroundColor(): THREE.Color {
   return new THREE.Color(getComputedStyle(document.body).backgroundColor);
 }
 
+class Tooltip {
+  private readonly element: HTMLDivElement;
+  private mousePosition: [number, number] = [NaN, NaN];
+  private elementTag: string = "";
+
+  constructor(private readonly canvas: HTMLCanvasElement) {
+    this.element = document.createElement("div");
+    this.element.style.position = "absolute";
+    this.element.style.padding = "6px 8px";
+    this.element.style.background = "#000000cc";
+    this.element.style.color = "white";
+    this.element.style.fontFamily = "sans-serif";
+    this.element.style.fontSize = "12px";
+    this.element.style.borderRadius = "4px";
+    this.element.style.pointerEvents = "none";
+    this.element.style.display = "none"; // hidden by default
+    document.body.appendChild(this.element);
+
+    canvas.addEventListener("mousemove", (e) => {
+      this.mousePosition = [e.clientX, canvas.clientHeight - e.clientY];
+    });
+    canvas.addEventListener("mouseleave", () => {
+      this.mousePosition = [NaN, NaN];
+    });
+  }
+
+  hover(box: Box, tag: string, content: () => string): void {
+    const [x, y] = this.mousePosition;
+    if (box.left <= x && x <= box.right && box.bottom <= y && y <= box.top) {
+      this.element.style.display = "block";
+      this.element.textContent = content();
+      const offset = 10;
+      this.element.style.left = `${x + offset}px`;
+      this.element.style.top = `${this.canvas.clientHeight - y + offset}px`;
+      this.elementTag = tag;
+    } else if (this.elementTag === tag) {
+      this.element.style.display = "none";
+      this.elementTag = "";
+    }
+  }
+}
+
 // Views
 
 class InstancedSpriteSheet {
@@ -221,7 +263,11 @@ class ProgressView {
   private readonly fill0: THREE.Mesh;
   private readonly fill1: THREE.Mesh;
 
-  constructor(private readonly game: G.Game, scene: THREE.Scene) {
+  constructor(
+    private readonly game: G.Game,
+    scene: THREE.Scene,
+    private readonly tooltip: Tooltip
+  ) {
     this.outline = new THREE.Mesh(
       new THREE.PlaneGeometry(1, 1),
       new THREE.MeshBasicMaterial({ color: 0x161616 })
@@ -280,6 +326,11 @@ class ProgressView {
       this.fill1.position.z
     );
     this.fill1.scale.set(innerW, h1, 1);
+
+    // Tooltip
+    this.tooltip.hover(bounds, "progress", () => {
+      return `${progress01} nnats (- ${this.game.score.total})`;
+    });
   }
 }
 
@@ -291,6 +342,7 @@ class Renderer {
   private readonly camera: THREE.OrthographicCamera;
   private lastTime: number | null = null;
 
+  private readonly tooltip: Tooltip;
   private readonly gridView: GridView;
   private readonly progressView: ProgressView;
 
@@ -307,8 +359,9 @@ class Renderer {
     requestAnimationFrame(this.onAnimate.bind(this));
 
     // Views
+    this.tooltip = new Tooltip(canvas);
     this.gridView = new GridView(this.game, this.scene);
-    this.progressView = new ProgressView(this.game, this.scene);
+    this.progressView = new ProgressView(this.game, this.scene, this.tooltip);
 
     // Keyboard controls
     window.addEventListener("keydown", (e) => {
