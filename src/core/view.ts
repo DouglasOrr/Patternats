@@ -206,6 +206,7 @@ class GridView {
   // Update instance matrices to match layout.grid and the current game.grid
   update(bounds: Box): void {
     const markSizeRatio = 0.5;
+    const brightnesses = [0.5, 1.0, 1.0];
     const caretColor: [number, number, number] = [0.3, 0.4, 0.3];
 
     const grid = this.game.grid;
@@ -221,13 +222,14 @@ class GridView {
       const col = i % grid.cols;
       const x = bounds.left + (col + 1.5) * cellSize;
       const y = bounds.bottom + (row + 1.5) * cellSize;
+      const b = brightnesses[grid.cells[i]];
       this.cells.update(
         i,
         /*pos*/ [x, y],
         /*scale*/ [markSize, markSize],
         /*rot*/ 0,
         /*tile*/ [0, 2 - grid.cells[i]],
-        /*tint*/ [1, 1, 1]
+        /*tint*/ [b, b, b]
       );
     }
 
