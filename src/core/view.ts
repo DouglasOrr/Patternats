@@ -34,9 +34,17 @@ function backgroundColor(): THREE.Color {
   return new THREE.Color(getComputedStyle(document.body).backgroundColor);
 }
 
+function loadTexture(path: string): THREE.Texture {
+  return new THREE.TextureLoader().load(path, undefined, undefined, (err) =>
+    console.error(`Error loading texture ${path}`, err)
+  );
+}
+
 class Mouse {
   position: [number, number] = [NaN, NaN];
   screenPosition: [number, number] = [NaN, NaN];
+  click: boolean = false;
+  nextClick: boolean = false;
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     canvas.addEventListener("mousemove", (e) => {
@@ -47,6 +55,27 @@ class Mouse {
     canvas.addEventListener("mouseleave", () => {
       this.position = this.screenPosition = [NaN, NaN];
     });
+    canvas.addEventListener("click", () => {
+      this.nextClick = true;
+    });
+  }
+
+  update() {
+    this.click = this.nextClick;
+    this.nextClick = false;
+  }
+
+  postUpdate() {
+    this.click = false;
+  }
+
+  inside(cx: number, cy: number, w: number, h: number): boolean {
+    return (
+      cx - w / 2 <= this.position[0] &&
+      this.position[0] <= cx + w / 2 &&
+      cy - h / 2 <= this.position[1] &&
+      this.position[1] <= cy + h / 2
+    );
   }
 }
 
@@ -85,7 +114,7 @@ class Tooltip {
   }
 }
 
-// Views
+// Components
 
 class InstancedSpriteSheet {
   private readonly mesh: THREE.InstancedMesh;
@@ -109,12 +138,7 @@ class InstancedSpriteSheet {
     const material = new THREE.ShaderMaterial({
       uniforms: {
         tex: {
-          value: new THREE.TextureLoader().load(
-            texturePath,
-            undefined,
-            undefined,
-            (err) => console.error(`Error loading texture ${texturePath}`, err)
-          ),
+          value: loadTexture(texturePath),
         },
         texTiles: { value: new THREE.Vector2(tiles[0], tiles[1]) },
       },
@@ -192,6 +216,55 @@ class InstancedSpriteSheet {
     this.tintAttr.needsUpdate = true;
   }
 }
+
+class Button {
+  private readonly mesh: THREE.Mesh;
+  enabled: boolean = true;
+
+  constructor(
+    texture: string,
+    private readonly mouse: Mouse,
+    scene: THREE.Scene,
+    private readonly click: () => void,
+    private readonly onUpdate?: (button: Button) => void
+  ) {
+    this.mesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 1),
+      new THREE.MeshBasicMaterial({
+        map: loadTexture(texture),
+        transparent: true,
+      })
+    );
+    this.mesh.position.z = 0.05;
+    scene.add(this.mesh);
+  }
+
+  update(cx: number, cy: number, w: number, h: number): void {
+    if (this.onUpdate) {
+      this.onUpdate(this);
+    }
+    const InnerSizeRatio = 0.6;
+    const HoverSizeRatio = 1.05;
+    const Colors = {
+      hovered: 0xffffff,
+      enabled: 0xaaaaaa,
+      disabled: 0x555555,
+    };
+
+    const hover = this.enabled && this.mouse.inside(cx, cy, w, h);
+    const sizeRatio = hover ? HoverSizeRatio * InnerSizeRatio : InnerSizeRatio;
+    this.mesh.position.set(cx, cy, this.mesh.position.z);
+    this.mesh.scale.set(w * sizeRatio, h * sizeRatio, 1);
+    (this.mesh.material as THREE.MeshBasicMaterial).color.setHex(
+      hover ? Colors.hovered : this.enabled ? Colors.enabled : Colors.disabled
+    );
+    if (hover && this.mouse.click) {
+      this.click();
+    }
+  }
+}
+
+// Views
 
 class GridView {
   private readonly cells: InstancedSpriteSheet;
@@ -412,6 +485,74 @@ class ProgressView {
   }
 }
 
+class PanelView {
+  private readonly background: THREE.Mesh;
+  private readonly controls: Button[];
+
+  constructor(private readonly game: G.Game, mouse: Mouse, scene: THREE.Scene) {
+    this.background = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 1),
+      new THREE.MeshBasicMaterial({ color: 0x2b2b2b })
+    );
+    this.background.position.z = 0.01;
+    scene.add(this.background);
+
+    this.controls = [
+      new Button("img/submit.png", mouse, scene, () => this.game.submit()),
+      new Button(
+        "img/undo.png",
+        mouse,
+        scene,
+        () => this.game.undo(),
+        (button) => {
+          button.enabled = this.game.stateIndex > 0;
+        }
+      ),
+      new Button(
+        "img/redo.png",
+        mouse,
+        scene,
+        () => this.game.redo(),
+        (button) => {
+          button.enabled = this.game.stateIndex < this.game.state.length - 1;
+        }
+      ),
+    ];
+  }
+
+  update(bounds: Box): void {
+    const cols = 3;
+    const minRows =
+      Math.ceil(this.controls.length / cols) +
+      Math.ceil(this.game.patterns.length / cols) +
+      Math.ceil(this.game.actions.length / cols);
+
+    // Layout
+    const cx = (bounds.left + bounds.right) / 2;
+    const cy = (bounds.bottom + bounds.top) / 2;
+    const w = bounds.right - bounds.left;
+    const h = bounds.top - bounds.bottom;
+    const inset = 0.02 * Math.min(w, h);
+    const sectionPad = 2 * inset;
+    const buttonSize = Math.min(
+      (w - 2 * inset) / cols,
+      (h - 2 * inset - 2 * sectionPad) / minRows
+    );
+
+    // Positions
+    this.background.position.set(cx, cy, this.background.position.z);
+    this.background.scale.set(w, h, 1);
+    for (let i = 0; i < this.controls.length; i++) {
+      this.controls[i].update(
+        bounds.left + inset + (i % cols) * buttonSize + buttonSize / 2,
+        bounds.top - inset - Math.floor(i / cols) * buttonSize - buttonSize / 2,
+        buttonSize,
+        buttonSize
+      );
+    }
+  }
+}
+
 // Core rendering
 
 class Renderer {
@@ -424,6 +565,7 @@ class Renderer {
   private readonly tooltip: Tooltip;
   private readonly gridView: GridView;
   private readonly progressView: ProgressView;
+  private readonly panelView: PanelView;
 
   constructor(private readonly game: G.Game, canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -447,6 +589,7 @@ class Renderer {
       this.progressView,
       this.scene
     );
+    this.panelView = new PanelView(this.game, this.mouse, this.scene);
 
     // Keyboard controls
     window.addEventListener("keydown", (e) => {
@@ -478,9 +621,12 @@ class Renderer {
     this.lastTime = time;
 
     // Update views
+    this.mouse.update();
     const layout = this.topLevelLayout();
     this.gridView.update(layout.grid);
     this.progressView.update(layout.progress);
+    this.panelView.update(layout.panel);
+    this.mouse.postUpdate();
 
     // Render
     this.renderer.render(this.scene, this.camera);
