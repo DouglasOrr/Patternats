@@ -267,11 +267,13 @@ export class Game {
   readonly actions: Action[];
   readonly onUpdate: Listener[] = [];
   readonly maxFrames: number = 3;
+  readonly maxRolls: number = 2;
   readonly targetScore: number;
   state: GameState[];
   stateIndex: number = 0;
   frame: number = 0;
   roundScore: number = 0;
+  roll: number = 1;
 
   constructor(
     patterns: Pattern[],
@@ -361,11 +363,13 @@ export class Game {
     this.roundScore += this.score.total;
     this.frame++;
     if (this.frame < this.maxFrames && this.roundScore < this.targetScore) {
+      this.roll = 0;
       this.newGrid();
     } else {
       setTimeout(() => {
         this.frame = 0;
         this.roundScore = 0;
+        this.roll = 0;
         this.newGrid();
       }, 1000);
       this.update();
@@ -374,9 +378,12 @@ export class Game {
 
   newGrid(): void {
     // Not undo-able, but (implicitly) refunds actions
-    const grid = Grid.random(this.grid.rows, this.grid.cols);
-    this.stateIndex = 0;
-    this.state = [{ grid, score: score(grid, this.patterns), action: null }];
-    this.update();
+    if (this.roll < this.maxRolls) {
+      this.roll++;
+      const grid = Grid.random(this.grid.rows, this.grid.cols);
+      this.stateIndex = 0;
+      this.state = [{ grid, score: score(grid, this.patterns), action: null }];
+      this.update();
+    }
   }
 }

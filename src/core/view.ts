@@ -418,7 +418,8 @@ class ProgressView {
     this.background.position.z = 0.01;
     scene.add(this.background);
 
-    this.fill = [0x610003, 0xb37e1d, 0xdddddd].map(
+    // Colors: remaining nats, scored nats, hover nats
+    this.fill = [0x447744, 0xb37e1d, 0xdddddd].map(
       (color) =>
         new THREE.Mesh(
           new THREE.PlaneGeometry(1, 1),
@@ -500,6 +501,15 @@ class PanelView {
     this.controls = [
       new Button("img/submit.png", mouse, scene, () => this.game.submit()),
       new Button(
+        "img/shuffle.png",
+        mouse,
+        scene,
+        () => this.game.newGrid(),
+        (button) => {
+          button.enabled = this.game.roll < this.game.maxRolls;
+        }
+      ),
+      new Button(
         "img/undo.png",
         mouse,
         scene,
@@ -521,7 +531,7 @@ class PanelView {
   }
 
   update(bounds: Box): void {
-    const cols = 3;
+    const cols = 4;
     const minRows =
       Math.ceil(this.controls.length / cols) +
       Math.ceil(this.game.patterns.length / cols) +
