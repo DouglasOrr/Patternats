@@ -3,11 +3,9 @@ import * as V from "./core/view";
 
 window.onload = () => {
   const game = new G.Game(
-    [
-      new G.Pattern(G.Grid.parse("-x-/xxx/-x-"), 25),
-      new G.Pattern(G.Grid.parse("xx/xx"), 4),
-    ],
-    [new G.SwapAction(), new G.SwapAction()],
+    [G.PlusPattern, G.SquarePattern],
+    [G.SwapAction, G.SwapAction],
+    [G.FlatPointsBonus],
     9,
     9,
     /*targetScore=*/ 100

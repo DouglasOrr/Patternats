@@ -81,7 +81,7 @@ class Mouse {
 
 class Tooltip {
   private readonly element: HTMLDivElement;
-  private elementTag: string = "";
+  private elementTag: any = null;
 
   constructor(private readonly mouse: Mouse) {
     this.element = document.createElement("div");
@@ -97,11 +97,11 @@ class Tooltip {
     document.body.appendChild(this.element);
   }
 
-  hover(box: Box, tag: string, content: () => string): void {
+  hover(box: Box, tag: any, content: () => string): void {
     const [x, y] = this.mouse.position;
     if (box.left <= x && x <= box.right && box.bottom <= y && y <= box.top) {
       this.element.style.display = "block";
-      this.element.textContent = content();
+      this.element.innerHTML = content();
       const offset = 10;
       const [screenX, screenY] = this.mouse.screenPosition;
       this.element.style.left = `${screenX + offset}px`;
@@ -109,7 +109,7 @@ class Tooltip {
       this.elementTag = tag;
     } else if (this.elementTag === tag) {
       this.element.style.display = "none";
-      this.elementTag = "";
+      this.elementTag = null;
     }
   }
 }
@@ -241,6 +241,44 @@ class InstancedSpriteSheet {
   }
 }
 
+class Item {
+  private readonly mesh: THREE.Mesh;
+
+  constructor(
+    texture: string,
+    private readonly tipText: string,
+    private readonly tooltip: Tooltip,
+    scene: THREE.Scene
+  ) {
+    this.mesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 1),
+      new THREE.MeshBasicMaterial({
+        map: loadTexture(texture),
+        transparent: true,
+        color: 0xaaaaaa,
+      })
+    );
+    this.mesh.position.z = 0.05;
+    scene.add(this.mesh);
+  }
+
+  update(cx: number, cy: number, w: number, h: number): void {
+    const InnerSizeRatio = 0.6;
+    this.mesh.position.set(cx, cy, this.mesh.position.z);
+    this.mesh.scale.set(w * InnerSizeRatio, h * InnerSizeRatio, 1);
+    this.tooltip.hover(
+      {
+        left: cx - w / 2,
+        right: cx + w / 2,
+        bottom: cy - h / 2,
+        top: cy + h / 2,
+      },
+      this,
+      () => this.tipText
+    );
+  }
+}
+
 class Button {
   private readonly mesh: THREE.Mesh;
   private readonly outline: Outline;
@@ -249,7 +287,9 @@ class Button {
 
   constructor(
     texture: string,
+    private readonly tipText: string | null,
     private readonly mouse: Mouse,
+    private readonly tooltip: Tooltip,
     scene: THREE.Scene,
     private readonly click: (button: Button) => void,
     private readonly onUpdate?: (button: Button) => void
@@ -297,6 +337,19 @@ class Button {
     // Clickable
     if (hover && this.mouse.click) {
       this.click(this);
+    }
+    // Tooltip
+    if (this.tipText !== null) {
+      this.tooltip.hover(
+        {
+          left: cx - w / 2,
+          right: cx + w / 2,
+          bottom: cy - h / 2,
+          top: cy + h / 2,
+        },
+        this,
+        () => this.tipText!
+      );
     }
   }
 }
@@ -374,16 +427,14 @@ class GridView {
       hoverComponent = this.game.score.cellToComponent[mrow * grid.cols + mcol];
       if (hoverComponent !== null) {
         const component = this.game.score.components[hoverComponent];
-        hoverIndices = new Set(component.indices);
-        for (const i in component.patterns) {
-          const pattern = this.game.patterns[component.patterns[i]];
-          const pos = component.patternPositions[i];
-          for (let j = 0; j < pattern.grid.rows * pattern.grid.cols; j++) {
-            if (pattern.grid.cells[j] !== G.Cell.O) {
+        hoverIndices = new Set(component.cellIndices);
+        for (const match of component.matches) {
+          for (let j = 0; j < match.pattern.grid.elements; j++) {
+            if (match.pattern.grid.cells[j] !== G.Cell.O) {
               patternIndices.add(
-                pos +
-                  Math.floor(j / pattern.grid.cols) * grid.cols +
-                  (j % pattern.grid.cols)
+                match.position +
+                  Math.floor(j / match.pattern.grid.cols) * grid.cols +
+                  (j % match.pattern.grid.cols)
               );
             }
           }
@@ -567,8 +618,14 @@ class PanelView {
   private readonly background: THREE.Mesh;
   private readonly controls: Button[];
   private readonly actions: Button[];
+  private readonly bonuses: Item[];
 
-  constructor(private readonly game: G.Game, mouse: Mouse, scene: THREE.Scene) {
+  constructor(
+    private readonly game: G.Game,
+    mouse: Mouse,
+    tooltip: Tooltip,
+    scene: THREE.Scene
+  ) {
     this.background = new THREE.Mesh(
       new THREE.PlaneGeometry(1, 1),
       new THREE.MeshBasicMaterial({ color: 0x2b2b2b })
@@ -577,10 +634,19 @@ class PanelView {
     scene.add(this.background);
 
     this.controls = [
-      new Button("img/submit.png", mouse, scene, () => this.game.submit()),
+      new Button(
+        "img/submit.png",
+        /*tipText*/ null,
+        mouse,
+        tooltip,
+        scene,
+        () => this.game.submit()
+      ),
       new Button(
         "img/shuffle.png",
+        /*tipText*/ null,
         mouse,
+        tooltip,
         scene,
         () => this.game.newGrid(),
         (button) => {
@@ -589,7 +655,9 @@ class PanelView {
       ),
       new Button(
         "img/undo.png",
+        /*tipText*/ null,
         mouse,
+        tooltip,
         scene,
         () => this.game.undo(),
         (button) => {
@@ -598,7 +666,9 @@ class PanelView {
       ),
       new Button(
         "img/redo.png",
+        /*tipText*/ null,
         mouse,
+        tooltip,
         scene,
         () => this.game.redo(),
         (button) => {
@@ -608,12 +678,28 @@ class PanelView {
     ];
     this.actions = this.game.actions.map(
       (action) =>
-        new Button(`img/actions/${action.name}.png`, mouse, scene, (button) => {
-          this.actions.forEach((b) => {
-            b.selected = false;
-          });
-          button.selected = true;
-        })
+        new Button(
+          `img/actions/${action.name}.png`,
+          `<b>${action.title}</b><br>${action.description}`,
+          mouse,
+          tooltip,
+          scene,
+          (button) => {
+            this.actions.forEach((b) => {
+              b.selected = false;
+            });
+            button.selected = true;
+          }
+        )
+    );
+    this.bonuses = this.game.bonuses.map(
+      (bonus) =>
+        new Item(
+          `img/bonuses/${bonus.name}.png`,
+          `<b>${bonus.title}</b><br>${bonus.description}`,
+          tooltip,
+          scene
+        )
     );
   }
 
@@ -681,6 +767,21 @@ class PanelView {
         }
       }
     }
+    for (let i = 0; i < this.bonuses.length; i++) {
+      this.bonuses[i].update(
+        bounds.left + inset + (i % cols) * buttonSize + buttonSize / 2,
+        bounds.top -
+          inset -
+          2 * sectionPad -
+          buttonSize *
+            (Math.ceil(this.controls.length / cols) +
+              Math.ceil(this.game.actions.length / cols) +
+              Math.floor(i / cols)) -
+          buttonSize / 2,
+        buttonSize,
+        buttonSize
+      );
+    }
   }
 }
 
@@ -714,7 +815,12 @@ class Renderer {
     this.mouse = new Mouse(canvas);
     this.tooltip = new Tooltip(this.mouse);
     this.progressView = new ProgressView(this.game, this.scene, this.tooltip);
-    this.panelView = new PanelView(this.game, this.mouse, this.scene);
+    this.panelView = new PanelView(
+      this.game,
+      this.mouse,
+      this.tooltip,
+      this.scene
+    );
     this.gridView = new GridView(
       this.game,
       this.mouse,

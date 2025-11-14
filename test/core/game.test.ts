@@ -1,20 +1,20 @@
-import { SwapAction, Grid, Cell, Pattern } from "../../src/core/game";
+import * as G from "../../src/core/game";
 
 test("Grid init", () => {
-  const grid = Grid.random(3, 4);
+  const grid = G.Grid.random(3, 4);
   expect(grid.rows).toBe(3);
   expect(grid.cols).toBe(4);
   expect(grid.cells).toHaveLength(12);
 });
 
 test("Grid parse, get", () => {
-  const grid = Grid.parse("x-/--");
-  expect(grid.get(0, 0)).toBe(Cell.X);
-  expect(grid.get(1, 0)).toBe(Cell.O);
+  const grid = G.Grid.parse("x-/--");
+  expect(grid.get(0, 0)).toBe(G.Cell.X);
+  expect(grid.get(1, 0)).toBe(G.Cell.O);
 });
 
 test("Grid getComponents", () => {
-  const grid = Grid.parse("xxx-/-x-x/x-x-");
+  const grid = G.Grid.parse("xxx-/-x-x/x-x-");
   const c = grid.getComponents();
   expect(c.components).toEqual([[0, 1, 2, 5], [7], [8], [10]]);
   /* prettier-ignore */
@@ -24,17 +24,22 @@ test("Grid getComponents", () => {
 });
 
 test("Action swap", () => {
-  const grid = Grid.parse("x-/--");
-  const action = new SwapAction();
-  const swapped = action.execute(grid, { i: 0, j: 2 });
-  expect(grid.get(0, 0)).toBe(Cell.X);
-  expect(grid.get(1, 0)).toBe(Cell.O);
-  expect(swapped.get(0, 0)).toBe(Cell.O);
-  expect(swapped.get(1, 0)).toBe(Cell.X);
+  const grid = G.Grid.parse("x-/--");
+  const swapped = G.SwapAction.execute(grid, { i: 0, j: 2 });
+  expect(grid.get(0, 0)).toBe(G.Cell.X);
+  expect(grid.get(1, 0)).toBe(G.Cell.O);
+  expect(swapped.get(0, 0)).toBe(G.Cell.O);
+  expect(swapped.get(1, 0)).toBe(G.Cell.X);
 });
 
 test("Pattern find", () => {
-  const grid = Grid.parse("xxx-/-x-x/x-x-");
-  const matches = new Pattern(Grid.parse("x-/-x"), 0).find(grid);
+  const grid = G.Grid.parse("xxx-/-x-x/x-x-");
+  const pattern = {
+    grid: G.Grid.parse("x-/-x"),
+    name: "test",
+    title: "Test",
+    points: 0,
+  };
+  const matches = G.findMatches(pattern, grid);
   expect(matches).toEqual([2, 5]);
 });

@@ -63,6 +63,10 @@ export class Grid {
 
   // Utility
 
+  get elements(): number {
+    return this.rows * this.cols;
+  }
+
   index(r: number, c: number): number {
     if (r < 0 || r >= this.rows) {
       throw new Error("Invalid row index");
@@ -146,79 +150,147 @@ export class Grid {
   }
 }
 
+// Items
+
+export interface Item {
+  name: string;
+  title: string;
+}
+
 // Actions
 
-export interface Action {
-  name: string;
+export interface Action extends Item {
+  description: string;
+  priority: number;
   execute(grid: Grid, arg: any): Grid;
 }
 
-export class SwapAction implements Action {
-  name = "swap";
+export const SwapAction: Action = {
+  name: "swap",
+  title: "Swap",
+  description: "Select two cells to swap",
+  priority: 1,
   execute(grid: Grid, arg: { i: number; j: number }): Grid {
     const cellsOut = grid.cells.slice();
     [cellsOut[arg.i], cellsOut[arg.j]] = [cellsOut[arg.j], cellsOut[arg.i]];
     return grid.replace(cellsOut);
-  }
+  },
+};
+
+// Bonuses
+
+export interface Bonus extends Item {
+  description: string;
+  priority: number;
+  onScore?(score: Score): void;
 }
 
-// Pattern and scoring
+export const FlatPointsBonus: Bonus = {
+  name: "flat_points",
+  title: "-20",
+  description: "subtract 20 nats",
+  priority: 100,
+  onScore(score: Score): void {
+    score.flatPoints += 20;
+  },
+};
 
-export class Pattern {
-  constructor(readonly grid: Grid, readonly points: number) {}
+// Patterns
 
-  find(grid: Grid): number[] {
-    const matches: number[] = [];
-    const pattern = this.grid;
-    for (let i = 0; i < grid.rows * grid.cols; i++) {
-      if (
-        Math.floor(i / grid.cols) + pattern.rows <= grid.rows &&
-        (i % grid.cols) + pattern.cols <= grid.cols
-      ) {
-        let isMatch = true;
-        for (let j = 0; j < pattern.rows * pattern.cols && isMatch; j++) {
-          const pr = Math.floor(j / pattern.cols);
-          const pc = j % pattern.cols;
-          const p = pattern.cells[j];
-          const c = grid.cells[i + pr * grid.cols + pc];
-          isMatch &&= !(p !== c && p !== Cell.W && c !== Cell.W);
-        }
-        if (isMatch) {
-          matches.push(i);
-        }
+export interface Pattern extends Item {
+  grid: Grid;
+  points: number;
+}
+
+export const PlusPattern: Pattern = {
+  name: "plus",
+  title: "Plus",
+  grid: Grid.parse("-x-/xxx/-x-"),
+  points: 25,
+};
+
+export const SquarePattern: Pattern = {
+  name: "square",
+  title: "Square",
+  grid: Grid.parse("xx/xx"),
+  points: 4,
+};
+
+// Scoring
+
+export function findMatches(pattern: Pattern, grid: Grid): number[] {
+  const matches: number[] = [];
+  const pgrid = pattern.grid;
+  for (let i = 0; i < grid.rows * grid.cols; i++) {
+    if (
+      Math.floor(i / grid.cols) + pgrid.rows <= grid.rows &&
+      (i % grid.cols) + pgrid.cols <= grid.cols
+    ) {
+      let isMatch = true;
+      for (let j = 0; j < pgrid.rows * pgrid.cols && isMatch; j++) {
+        const pr = Math.floor(j / pgrid.cols);
+        const pc = j % pgrid.cols;
+        const p = pgrid.cells[j];
+        const c = grid.cells[i + pr * grid.cols + pc];
+        isMatch &&= !(p !== c && p !== Cell.W && c !== Cell.W);
+      }
+      if (isMatch) {
+        matches.push(i);
       }
     }
-    return matches;
+  }
+  return matches;
+}
+
+export class ComponentScore {
+  readonly matches: {
+    pattern: Pattern;
+    patternIndex: number;
+    position: number;
+  }[] = [];
+  constructor(readonly cellIndices: number[]) {}
+
+  addMatch(pattern: Pattern, patternIndex: number, position: number): void {
+    this.matches.push({ pattern, patternIndex, position });
+  }
+
+  get score(): number {
+    let total = 0;
+    for (const p of this.matches) {
+      total += p.pattern.points;
+    }
+    if (this.matches.length >= 1) {
+      total += this.cellIndices.length;
+    }
+    return total;
   }
 }
 
-export interface Component {
-  indices: number[];
-  patterns: number[];
-  patternPositions: number[];
-  score: number;
+export class Score {
+  flatPoints: number = 0;
+  constructor(
+    readonly components: ComponentScore[],
+    readonly cellToComponent: (number | null)[]
+  ) {}
+
+  get total(): number {
+    return (
+      this.components.reduce((sum, comp) => sum + comp.score, 0) +
+      this.flatPoints
+    );
+  }
 }
 
-export interface Score {
-  total: number;
-  components: Component[];
-  cellToComponent: (number | null)[];
-}
-
-export function score(grid: Grid, patterns: Pattern[]): Score {
+export function getScore(grid: Grid, patterns: Pattern[]): Score {
   // Find components
   const gridC = grid.getComponents();
-  const components: Component[] = gridC.components.map((indices) => ({
-    indices,
-    patterns: [],
-    patternPositions: [],
-    score: 0,
-  }));
+  const components: ComponentScore[] = gridC.components.map(
+    (idx) => new ComponentScore(idx)
+  );
 
-  // Add patterns to components
+  // Add pattern matches to components
   for (const [pIdx, pattern] of patterns.entries()) {
-    const matches = pattern.find(grid);
-    for (const match of matches) {
+    for (const match of findMatches(pattern, grid)) {
       const pComponents = new Set<number | null>();
       for (let j = 0; j < pattern.grid.rows * pattern.grid.cols; j++) {
         const r = Math.floor(j / pattern.grid.cols);
@@ -228,28 +300,12 @@ export function score(grid: Grid, patterns: Pattern[]): Score {
       }
       for (const component of pComponents) {
         if (component !== null) {
-          components[component].patterns.push(pIdx);
-          components[component].patternPositions.push(match);
+          components[component].addMatch(pattern, pIdx, match);
         }
       }
     }
   }
-
-  // Compute scores
-  for (const component of components) {
-    let score = 0;
-    for (const pIdx of component.patterns) {
-      score += patterns[pIdx].points;
-    }
-    if (component.patterns.length >= 1) {
-      score += component.indices.length;
-    }
-    component.score = score;
-  }
-
-  const total = components.reduce((sum, comp) => sum + comp.score, 0);
-
-  return { total, components, cellToComponent: gridC.cellToComponent };
+  return new Score(components, gridC.cellToComponent);
 }
 
 // Game state
@@ -263,32 +319,55 @@ export interface GameState {
 export type Listener = () => void;
 
 export class Game {
-  readonly patterns: Pattern[];
-  readonly actions: Action[];
-  readonly onUpdate: Listener[] = [];
+  // Round settings
   readonly maxFrames: number = 3;
   readonly maxRolls: number = 2;
   readonly targetScore: number;
-  state: GameState[];
+  // State
+  state: GameState[] = [];
   stateIndex: number = 0;
   frame: number = 0;
   roundScore: number = 0;
   roll: number = 1;
 
   constructor(
-    patterns: Pattern[],
-    actions: Action[],
+    // Items
+    readonly patterns: Pattern[],
+    readonly actions: Action[],
+    readonly bonuses: Bonus[],
+    // Other settings
     rows: number,
     cols: number,
     targetScore: number
   ) {
-    this.patterns = patterns;
-    this.actions = actions;
     const grid = Grid.random(rows, cols);
-    this.state = [{ grid, score: score(grid, patterns), action: null }];
     this.targetScore = targetScore;
+    this.push(grid, null);
+  }
+
+  // Internal
+
+  private update(): void {
+    console.log(
+      `Frame ${this.frame + 1}/${this.maxFrames}`,
+      `Score ${this.score.total}`,
+      `Round Score ${this.roundScore}/${this.targetScore}`
+    );
+  }
+
+  private push(grid: Grid, action: number | null): void {
+    const score = getScore(grid, this.patterns);
+    for (const bonus of this.bonuses) {
+      if (bonus.onScore) {
+        bonus.onScore(score);
+      }
+    }
+    this.state.push({ grid, score, action });
+    this.stateIndex = this.state.length - 1;
     this.update();
   }
+
+  // Properties
 
   get grid(): Grid {
     return this.state[this.stateIndex].grid;
@@ -318,17 +397,6 @@ export class Game {
     return "playing";
   }
 
-  update(): void {
-    console.log(
-      `Frame ${this.frame + 1}/${this.maxFrames}`,
-      `Score ${this.score.total}`,
-      `Round Score ${this.roundScore}/${this.targetScore}`
-    );
-    for (const listener of this.onUpdate) {
-      listener();
-    }
-  }
-
   // Actions
 
   execute(action: number, arg: any): void {
@@ -338,9 +406,8 @@ export class Game {
       }
     }
     const grid = this.actions[action].execute(this.grid, arg);
-    this.state.splice(++this.stateIndex);
-    this.state.push({ grid, score: score(grid, this.patterns), action });
-    this.update();
+    this.state.splice(this.stateIndex + 1);
+    this.push(grid, action);
   }
 
   hasAction(action: number): boolean {
@@ -390,8 +457,8 @@ export class Game {
     if (this.roll < this.maxRolls) {
       this.roll++;
       const grid = Grid.random(this.grid.rows, this.grid.cols);
-      this.stateIndex = 0;
-      this.state = [{ grid, score: score(grid, this.patterns), action: null }];
+      this.state.splice(0);
+      this.push(grid, null);
       this.update();
     }
   }
