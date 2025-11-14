@@ -397,6 +397,14 @@ export class Game {
     return "playing";
   }
 
+  get framesRemaining(): number {
+    return this.maxFrames - this.frame;
+  }
+
+  get rollsRemaining(): number {
+    return this.maxRolls - this.roll;
+  }
+
   // Actions
 
   execute(action: number, arg: any): void {

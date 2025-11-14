@@ -354,6 +354,46 @@ class Button {
   }
 }
 
+class Pips {
+  private readonly fills: THREE.Mesh[] = [];
+  private readonly outlines: THREE.Mesh[] = [];
+
+  constructor(private readonly count: number, scene: THREE.Scene) {
+    const fillGeometry = new THREE.CircleGeometry(0.5, 24);
+    const outlineGeometry = new THREE.RingGeometry(0.42, 0.5, 24);
+    const fillMaterial = new THREE.MeshBasicMaterial({ color: 0xb37e1d });
+    const outlineMaterial = new THREE.MeshBasicMaterial({
+      color: 0x888888,
+      side: THREE.DoubleSide,
+    });
+    for (let i = 0; i < count; i++) {
+      const outline = new THREE.Mesh(outlineGeometry, outlineMaterial.clone());
+      outline.position.z = 0.02;
+      this.outlines.push(outline);
+      scene.add(outline);
+
+      const fill = new THREE.Mesh(fillGeometry, fillMaterial.clone());
+      fill.position.z = 0.03;
+      this.fills.push(fill);
+      scene.add(fill);
+    }
+  }
+
+  update(cx: number, cy: number, w: number, h: number, nfilled: number): void {
+    const filled = Math.max(0, Math.min(this.count, Math.floor(nfilled)));
+    const deltax = w / this.count;
+    const scale = Math.min(h, deltax) * 0.7;
+    for (let i = 0; i < this.count; i++) {
+      const x = cx - w / 2 + (i + 0.5) * deltax;
+      this.outlines[i].position.set(x, cy, this.outlines[i].position.z);
+      this.outlines[i].scale.set(scale, scale, 1);
+      this.fills[i].position.set(x, cy, this.fills[i].position.z);
+      this.fills[i].scale.set(scale, scale, 1);
+      this.fills[i].visible = this.count - 1 - i < filled;
+    }
+  }
+}
+
 // Views
 
 class GridView {
@@ -619,6 +659,8 @@ class PanelView {
   private readonly controls: Button[];
   private readonly actions: Button[];
   private readonly bonuses: Item[];
+  private readonly turnPips: Pips;
+  private readonly rerollPips: Pips;
 
   constructor(
     private readonly game: G.Game,
@@ -701,6 +743,9 @@ class PanelView {
           scene
         )
     );
+
+    this.turnPips = new Pips(this.game.maxFrames, scene);
+    this.rerollPips = new Pips(this.game.maxRolls - 1, scene);
   }
 
   selectedAction(): number | null {
@@ -714,7 +759,9 @@ class PanelView {
 
   update(bounds: Box): void {
     const cols = 4;
-    const minRows =
+    const PipHeightRatio = 0.3;
+    const rows =
+      PipHeightRatio + // Pips: half-height
       Math.ceil(this.controls.length / cols) +
       Math.ceil(this.game.patterns.length / cols) +
       Math.ceil(this.game.actions.length / cols);
@@ -728,36 +775,52 @@ class PanelView {
     const sectionPad = 2 * inset;
     const buttonSize = Math.min(
       (w - 2 * inset) / cols,
-      (h - 2 * inset - 2 * sectionPad) / minRows
+      (h - 2 * inset - 2 * sectionPad) / rows
     );
 
-    // Positions
+    // Background
     this.background.position.set(cx, cy, this.background.position.z);
     this.background.scale.set(w, h, 1);
+
+    // Positions
+    const x0 = bounds.left + inset + buttonSize / 2;
+    let y = bounds.top - inset - (PipHeightRatio * buttonSize) / 2;
+    this.turnPips.update(
+      x0,
+      y,
+      buttonSize,
+      PipHeightRatio * buttonSize,
+      this.game.framesRemaining
+    );
+    this.rerollPips.update(
+      x0 + (1 % cols) * buttonSize,
+      y - Math.floor(1 / cols) * buttonSize,
+      buttonSize,
+      PipHeightRatio * buttonSize,
+      this.game.rollsRemaining
+    );
+    y -= (PipHeightRatio * buttonSize) / 2 + buttonSize / 2;
     for (let i = 0; i < this.controls.length; i++) {
       this.controls[i].update(
-        bounds.left + inset + (i % cols) * buttonSize + buttonSize / 2,
-        bounds.top - inset - Math.floor(i / cols) * buttonSize - buttonSize / 2,
+        x0 + (i % cols) * buttonSize,
+        y - Math.floor(i / cols) * buttonSize,
         buttonSize,
         buttonSize
       );
     }
+    y -= sectionPad + buttonSize * Math.ceil(this.controls.length / cols);
     for (let i = 0; i < this.actions.length; i++) {
       const button = this.actions[i];
       button.enabled = this.game.hasAction(i);
       button.update(
-        bounds.left + inset + (i % cols) * buttonSize + buttonSize / 2,
-        bounds.top -
-          inset -
-          sectionPad -
-          buttonSize *
-            (Math.ceil(this.controls.length / cols) + Math.floor(i / cols)) -
-          buttonSize / 2,
+        x0 + (i % cols) * buttonSize,
+        y - Math.floor(i / cols) * buttonSize,
         buttonSize,
         buttonSize
       );
       button.selected &&= button.enabled;
     }
+    y -= sectionPad + buttonSize * Math.ceil(this.game.actions.length / cols);
     // If no action is selected, select the first enabled one
     if (this.actions.reduce((acc, b) => acc || b.selected, false) === false) {
       for (const b of this.actions) {
@@ -769,15 +832,8 @@ class PanelView {
     }
     for (let i = 0; i < this.bonuses.length; i++) {
       this.bonuses[i].update(
-        bounds.left + inset + (i % cols) * buttonSize + buttonSize / 2,
-        bounds.top -
-          inset -
-          2 * sectionPad -
-          buttonSize *
-            (Math.ceil(this.controls.length / cols) +
-              Math.ceil(this.game.actions.length / cols) +
-              Math.floor(i / cols)) -
-          buttonSize / 2,
+        x0 + (i % cols) * buttonSize,
+        y - Math.floor(i / cols) * buttonSize,
         buttonSize,
         buttonSize
       );

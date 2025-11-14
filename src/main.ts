@@ -8,7 +8,7 @@ window.onload = () => {
     [G.FlatPointsBonus],
     9,
     9,
-    /*targetScore=*/ 100
+    /*targetScore=*/ 200
   );
   V.start(game);
 };
