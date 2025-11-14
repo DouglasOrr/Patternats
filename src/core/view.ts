@@ -659,7 +659,7 @@ class PanelView {
   private readonly controls: Button[];
   private readonly actions: Button[];
   private readonly bonuses: Item[];
-  private readonly turnPips: Pips;
+  private readonly framePips: Pips;
   private readonly rerollPips: Pips;
 
   constructor(
@@ -685,12 +685,12 @@ class PanelView {
         () => this.game.submit()
       ),
       new Button(
-        "img/shuffle.png",
+        "img/reroll.png",
         /*tipText*/ null,
         mouse,
         tooltip,
         scene,
-        () => this.game.newGrid(),
+        () => this.game.reroll(),
         (button) => {
           button.enabled = this.game.roll < this.game.maxRolls;
         }
@@ -744,8 +744,8 @@ class PanelView {
         )
     );
 
-    this.turnPips = new Pips(this.game.maxFrames, scene);
-    this.rerollPips = new Pips(this.game.maxRolls - 1, scene);
+    this.framePips = new Pips(this.game.maxFrames, scene);
+    this.rerollPips = new Pips(this.game.maxRolls, scene);
   }
 
   selectedAction(): number | null {
@@ -785,7 +785,7 @@ class PanelView {
     // Positions
     const x0 = bounds.left + inset + buttonSize / 2;
     let y = bounds.top - inset - (PipHeightRatio * buttonSize) / 2;
-    this.turnPips.update(
+    this.framePips.update(
       x0,
       y,
       buttonSize,

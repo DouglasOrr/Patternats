@@ -321,14 +321,14 @@ export type Listener = () => void;
 export class Game {
   // Round settings
   readonly maxFrames: number = 3;
-  readonly maxRolls: number = 2;
+  readonly maxRolls: number = 1;
   readonly targetScore: number;
   // State
   state: GameState[] = [];
   stateIndex: number = 0;
-  frame: number = 0;
   roundScore: number = 0;
-  roll: number = 1;
+  frame: number = 0;
+  roll: number = 0;
 
   constructor(
     // Items
@@ -410,7 +410,9 @@ export class Game {
   execute(action: number, arg: any): void {
     for (let i = 0; i <= this.stateIndex; i++) {
       if (this.state[i].action === action) {
-        throw new Error("Cannot execute action that has already been used");
+        console.error(
+          `Cannot execute action ${action} that has already been used`
+        );
       }
     }
     const grid = this.actions[action].execute(this.grid, arg);
@@ -447,20 +449,20 @@ export class Game {
     this.roundScore += this.score.total;
     this.frame++;
     if (this.frame < this.maxFrames && this.roundScore < this.targetScore) {
-      this.roll = 0;
-      this.newGrid();
+      this.roll = -1;
+      this.reroll();
     } else {
       setTimeout(() => {
         this.frame = 0;
         this.roundScore = 0;
-        this.roll = 0;
-        this.newGrid();
+        this.roll = -1;
+        this.reroll();
       }, 1000);
       this.update();
     }
   }
 
-  newGrid(): void {
+  reroll(): void {
     // Not undo-able, but (implicitly) refunds actions
     if (this.roll < this.maxRolls) {
       this.roll++;
