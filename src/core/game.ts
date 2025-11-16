@@ -310,9 +310,9 @@ export class Score {
   }
 }
 
-// Game state
+// Wave
 
-export class Game {
+export class Wave {
   // Round settings
   readonly maxFrames: number = 3;
   readonly maxRolls: number = 1;

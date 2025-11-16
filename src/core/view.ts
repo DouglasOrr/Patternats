@@ -1,9 +1,9 @@
 import * as G from "./game";
 import * as THREE from "three";
 
-export function start(game: G.Game): void {
+export function start(wave: G.Wave): void {
   new Renderer(
-    game,
+    wave,
     document.getElementById("canvas-main") as HTMLCanvasElement
   );
 }
@@ -483,7 +483,7 @@ class GridView {
   private swapSrc: number | null = null;
 
   constructor(
-    private readonly game: G.Game,
+    private readonly wave: G.Wave,
     private readonly mouse: Mouse,
     private readonly panel: PanelView,
     private readonly progress: ProgressView,
@@ -492,13 +492,13 @@ class GridView {
     this.cells = new InstancedSpriteSheet(
       "img/cells.png",
       [1, 3],
-      game.grid.cells.length,
+      wave.grid.cells.length,
       scene
     );
     this.carets = new InstancedSpriteSheet(
       "img/caret.png",
       [1, 1],
-      2 * (game.grid.rows + game.grid.cols),
+      2 * (wave.grid.rows + wave.grid.cols),
       scene
     );
     this.hoverOutline = new Outline(0xaaaaaa, 0.05, scene);
@@ -507,7 +507,7 @@ class GridView {
     this.srcOutline.line.visible = false;
   }
 
-  // Update instance matrices to match layout.grid and the current game.grid
+  // Update instance matrices to match layout.grid and the current wave.grid
   update(bounds: Box): void {
     const MarkSizeRatio = 0.5;
     const MarkHoverGrow = 1.05;
@@ -524,7 +524,7 @@ class GridView {
       pattern: color(0xffdd55),
     };
 
-    const grid = this.game.grid;
+    const grid = this.wave.grid;
     const cellSize = Math.min(
       (bounds.right - bounds.left) / (grid.cols + 2),
       (bounds.top - bounds.bottom) / (grid.rows + 2)
@@ -543,9 +543,9 @@ class GridView {
     this.hoverOutline.line.visible = false;
     if (0 <= mrow && mrow < grid.rows && 0 <= mcol && mcol < grid.cols) {
       // Mouse is over the grid of cells
-      hoverComponent = this.game.score.cellToComponent[mrow * grid.cols + mcol];
+      hoverComponent = this.wave.score.cellToComponent[mrow * grid.cols + mcol];
       if (hoverComponent !== null) {
-        const component = this.game.score.components[hoverComponent];
+        const component = this.wave.score.components[hoverComponent];
         hoverIndices = new Set(component.cellIndices);
         for (const match of component.matches) {
           for (let j = 0; j < match.pattern.grid.elements; j++) {
@@ -560,7 +560,7 @@ class GridView {
         }
       }
       const actionIdx = this.panel.selectedAction();
-      if (actionIdx !== null && this.game.actions[actionIdx].name == "swap") {
+      if (actionIdx !== null && this.wave.actions[actionIdx].name == "swap") {
         this.hoverOutline.line.visible = true;
         this.hoverOutline.update(
           cellsLeft + (mcol + 0.5) * cellSize,
@@ -575,7 +575,7 @@ class GridView {
           } else if (this.swapSrc === cellIdx) {
             this.swapSrc = null; // cancel
           } else {
-            this.game.execute(actionIdx, { i: this.swapSrc, j: cellIdx });
+            this.wave.execute(actionIdx, { i: this.swapSrc, j: cellIdx });
             this.swapSrc = null;
           }
         }
@@ -647,7 +647,7 @@ class ProgressView {
   private hoverComponent: number | null = null;
 
   constructor(
-    private readonly game: G.Game,
+    private readonly wave: G.Wave,
     scene: THREE.Scene,
     private readonly tooltip: Tooltip
   ) {
@@ -701,22 +701,22 @@ class ProgressView {
     // Progress
     const progressAll = Math.max(
       0,
-      this.game.targetScore - this.game.roundScore
+      this.wave.targetScore - this.wave.roundScore
     );
     let progress2 = 0;
-    let progress1 = Math.min(progressAll, this.game.score.total);
+    let progress1 = Math.min(progressAll, this.wave.score.total);
     const progress0 = Math.max(0, progressAll - progress1);
     if (this.hoverComponent !== null) {
       progress2 = Math.min(
         progressAll,
-        this.game.score.components[this.hoverComponent].score
+        this.wave.score.components[this.hoverComponent].score
       );
       progress1 = Math.max(0, progress1 - progress2);
     }
 
     let y = 0;
     for (const [i, progress] of [progress0, progress1, progress2].entries()) {
-      const h = (innerH * progress) / this.game.targetScore;
+      const h = (innerH * progress) / this.wave.targetScore;
       this.fill[i].position.set(
         cx,
         cy - innerH / 2 + y + h / 2,
@@ -728,7 +728,7 @@ class ProgressView {
 
     // Tooltip
     if (this.hoverComponent !== null) {
-      const component = this.game.score.components[this.hoverComponent];
+      const component = this.wave.score.components[this.hoverComponent];
       this.tooltip.show(
         this,
         component.score > 0,
@@ -745,12 +745,12 @@ class ProgressView {
         },
         [
           bounds.right,
-          cy + innerH * (progressAll / this.game.targetScore - 1 / 2),
+          cy + innerH * (progressAll / this.wave.targetScore - 1 / 2),
         ]
       );
     } else {
       this.tooltip.show(this, bounds, () => {
-        return `${progressAll} nnats (- ${this.game.score.total})`;
+        return `${progressAll} nnats (- ${this.wave.score.total})`;
       });
     }
   }
@@ -766,7 +766,7 @@ class PanelView {
   private readonly rerollPips: Pips;
 
   constructor(
-    private readonly game: G.Game,
+    private readonly wave: G.Wave,
     mouse: Mouse,
     tooltip: Tooltip,
     scene: THREE.Scene,
@@ -786,7 +786,7 @@ class PanelView {
         mouse,
         tooltip,
         scene,
-        () => this.game.submit()
+        () => this.wave.submit()
       ),
       new Button(
         "img/reroll.png",
@@ -794,9 +794,9 @@ class PanelView {
         mouse,
         tooltip,
         scene,
-        () => this.game.reroll(),
+        () => this.wave.reroll(),
         (button) => {
-          button.enabled = this.game.roll < this.game.maxRolls;
+          button.enabled = this.wave.roll < this.wave.maxRolls;
         }
       ),
       new Button(
@@ -805,9 +805,9 @@ class PanelView {
         mouse,
         tooltip,
         scene,
-        () => this.game.undo(),
+        () => this.wave.undo(),
         (button) => {
-          button.enabled = this.game.stateIndex > 0;
+          button.enabled = this.wave.stateIndex > 0;
         }
       ),
       new Button(
@@ -816,13 +816,13 @@ class PanelView {
         mouse,
         tooltip,
         scene,
-        () => this.game.redo(),
+        () => this.wave.redo(),
         (button) => {
-          button.enabled = this.game.stateIndex < this.game.state.length - 1;
+          button.enabled = this.wave.stateIndex < this.wave.state.length - 1;
         }
       ),
     ];
-    this.actions = this.game.actions.map(
+    this.actions = this.wave.actions.map(
       (action) =>
         new Button(
           `img/actions/${action.name}.png`,
@@ -838,7 +838,7 @@ class PanelView {
           }
         )
     );
-    this.patterns = this.game.patterns.map((pattern) => {
+    this.patterns = this.wave.patterns.map((pattern) => {
       return new Item(
         patternTextures[pattern.name],
         `<b>${pattern.title}</b> [${pattern.grid.rows}×${pattern.grid.cols}]` +
@@ -847,7 +847,7 @@ class PanelView {
         scene
       );
     });
-    this.bonuses = this.game.bonuses.map(
+    this.bonuses = this.wave.bonuses.map(
       (bonus) =>
         new Item(
           `img/bonuses/${bonus.name}.png`,
@@ -857,8 +857,8 @@ class PanelView {
         )
     );
 
-    this.framePips = new Pips(this.game.maxFrames, scene);
-    this.rerollPips = new Pips(this.game.maxRolls, scene);
+    this.framePips = new Pips(this.wave.maxFrames, scene);
+    this.rerollPips = new Pips(this.wave.maxRolls, scene);
   }
 
   selectedAction(): number | null {
@@ -876,7 +876,7 @@ class PanelView {
     const rows =
       PipHeightRatio + // Pips: half-height
       Math.ceil(this.controls.length / cols) +
-      Math.ceil(this.game.actions.length / cols) +
+      Math.ceil(this.wave.actions.length / cols) +
       Math.ceil(this.patterns.length / cols) +
       Math.ceil(this.bonuses.length / cols);
 
@@ -904,14 +904,14 @@ class PanelView {
       y,
       buttonSize,
       PipHeightRatio * buttonSize,
-      this.game.framesRemaining
+      this.wave.framesRemaining
     );
     this.rerollPips.update(
       x0 + (1 % cols) * buttonSize,
       y - Math.floor(1 / cols) * buttonSize,
       buttonSize,
       PipHeightRatio * buttonSize,
-      this.game.rollsRemaining
+      this.wave.rollsRemaining
     );
     y -= (PipHeightRatio * buttonSize) / 2 + buttonSize / 2;
     // Controls
@@ -927,7 +927,7 @@ class PanelView {
     // Actions
     for (let i = 0; i < this.actions.length; i++) {
       const button = this.actions[i];
-      button.enabled = this.game.hasAction(i);
+      button.enabled = this.wave.hasAction(i);
       button.update(
         x0 + (i % cols) * buttonSize,
         y - Math.floor(i / cols) * buttonSize,
@@ -945,7 +945,7 @@ class PanelView {
         }
       }
     }
-    y -= sectionPad + buttonSize * Math.ceil(this.game.actions.length / cols);
+    y -= sectionPad + buttonSize * Math.ceil(this.wave.actions.length / cols);
     // Patterns
     for (let i = 0; i < this.patterns.length; i++) {
       this.patterns[i].update(
@@ -982,7 +982,7 @@ class Renderer {
   private readonly progressView: ProgressView;
   private readonly panelView: PanelView;
 
-  constructor(private readonly game: G.Game, canvas: HTMLCanvasElement) {
+  constructor(private readonly wave: G.Wave, canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
     this.camera = new THREE.OrthographicCamera();
     this.camera.near = 0.1;
@@ -997,17 +997,17 @@ class Renderer {
     // Views
     this.mouse = new Mouse(canvas);
     this.tooltip = new Tooltip(this.mouse, canvas);
-    this.progressView = new ProgressView(this.game, this.scene, this.tooltip);
-    const patternTextures = renderPatternTextures(this.game.patterns);
+    this.progressView = new ProgressView(this.wave, this.scene, this.tooltip);
+    const patternTextures = renderPatternTextures(this.wave.patterns);
     this.panelView = new PanelView(
-      this.game,
+      this.wave,
       this.mouse,
       this.tooltip,
       this.scene,
       patternTextures
     );
     this.gridView = new GridView(
-      this.game,
+      this.wave,
       this.mouse,
       this.panelView,
       this.progressView,
@@ -1018,7 +1018,7 @@ class Renderer {
     window.addEventListener("keydown", (e) => {
       if (e.key === " ") {
         e.preventDefault();
-        this.game.submit();
+        this.wave.submit();
       }
     });
   }

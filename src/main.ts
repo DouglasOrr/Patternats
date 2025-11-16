@@ -3,7 +3,7 @@ import * as V from "./core/view";
 import { Items } from "./core/items.js";
 
 window.onload = () => {
-  const game = new G.Game(
+  const wave = new G.Wave(
     [Items["plus"], Items["square_M"], Items["rhode_island_Z"]] as G.Pattern[],
     [Items["swap"], Items["swap"], Items["swap"]] as G.Action[],
     [Items["flat_points"]] as G.Bonus[],
@@ -11,5 +11,5 @@ window.onload = () => {
     9,
     /*targetScore=*/ 200
   );
-  V.start(game);
+  V.start(wave);
 };
