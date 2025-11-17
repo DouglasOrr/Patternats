@@ -198,6 +198,7 @@ interface ViewContext {
   tooltip: Tooltip;
   patternTextures: PatternTextures;
   scene: THREE.Scene;
+  camera: THREE.OrthographicCamera;
 }
 
 // Components
@@ -489,9 +490,9 @@ class GridView {
 
   constructor(
     private readonly wave: W.Wave,
-    private readonly context: ViewContext,
     private readonly panel: PanelView,
-    private readonly progress: ProgressView
+    private readonly progress: ProgressView,
+    private readonly context: ViewContext
   ) {
     this.cells = new InstancedSpriteSheet(
       "img/cells.png",
@@ -956,95 +957,43 @@ class PanelView {
 
 // Core rendering
 
-class Renderer {
-  // Shared
-  private readonly renderer: THREE.WebGLRenderer;
-  private readonly camera: THREE.OrthographicCamera;
-  private lastTime: number | null = null;
-  private readonly mouse: Mouse;
-  private readonly tooltip: Tooltip;
-  private readonly patternTextures: PatternTextures;
+interface Scene {
+  readonly context: ViewContext;
+  update(): void;
+  dispose(): void;
+}
 
-  // Scene
-  private readonly scene: THREE.Scene;
+class WaveScene implements Scene {
   private readonly gridView: GridView;
   private readonly progressView: ProgressView;
   private readonly panelView: PanelView;
 
-  constructor(private readonly wave: W.Wave, canvas: HTMLCanvasElement) {
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-    this.camera = new THREE.OrthographicCamera();
-    this.camera.near = 0.1;
-    this.camera.far = 1000;
-    this.camera.position.z = 10;
-    this.mouse = new Mouse(canvas);
-    this.tooltip = new Tooltip(this.mouse, canvas);
-    this.patternTextures = renderPatternTextures(
-      Object.values(Items).filter(
-        (item): item is W.Pattern => W.kind(item) === "pattern"
-      )
-    );
-
-    // Views
-    this.scene = new THREE.Scene();
-    this.scene.background = backgroundColor();
-    const context: ViewContext = {
-      mouse: this.mouse,
-      tooltip: this.tooltip,
-      patternTextures: this.patternTextures,
-      scene: this.scene,
-    };
-    this.progressView = new ProgressView(this.wave, context);
-    this.panelView = new PanelView(this.wave, context);
+  constructor(wave: W.Wave, readonly context: ViewContext) {
+    context.scene.background = backgroundColor();
+    this.progressView = new ProgressView(wave, context);
+    this.panelView = new PanelView(wave, context);
     this.gridView = new GridView(
-      this.wave,
-      context,
+      wave,
       this.panelView,
-      this.progressView
+      this.progressView,
+      context
     );
-
-    this.onResize();
-    window.addEventListener("resize", this.onResize.bind(this));
-    requestAnimationFrame(this.onAnimate.bind(this));
   }
 
-  private onResize() {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    this.renderer.setSize(w, h, false);
-    this.camera.left = 0;
-    this.camera.right = w;
-    this.camera.top = h;
-    this.camera.bottom = 0;
-    this.camera.updateProjectionMatrix();
-  }
-
-  private onAnimate(time: number) {
-    // Preamble
-    if (this.lastTime === null) {
-      this.lastTime = time;
-    }
-    // const dt = (time - this.lastTime) / 1000; // for animation
-    this.lastTime = time;
-    this.mouse.update();
-
-    // Update views
+  update(): void {
     const layout = this.topLevelLayout();
     this.gridView.update(layout.grid);
     this.progressView.update(layout.progress);
     this.panelView.update(layout.panel);
+  }
 
-    // Render
-    this.mouse.postUpdate();
-    this.renderer.render(this.scene, this.camera);
-    requestAnimationFrame(this.onAnimate.bind(this));
-    LOG.tick();
+  dispose(): void {
+    // TODO
   }
 
   private topLevelLayout(): { grid: Box; progress: Box; panel: Box } {
-    const w = this.camera.right - this.camera.left;
-    const h = this.camera.top - this.camera.bottom;
+    const w = this.context.camera.right - this.context.camera.left;
+    const h = this.context.camera.top - this.context.camera.bottom;
     const pad = 0.02 * w;
     const panelW = 0.25 * w;
     const progressW = Math.min(0.03 * w, 0.03 * (h - 2 * pad));
@@ -1070,5 +1019,75 @@ class Renderer {
         top: y + gridSize,
       },
     };
+  }
+}
+
+class Renderer {
+  private readonly renderer: THREE.WebGLRenderer;
+  private readonly camera: THREE.OrthographicCamera;
+  private readonly mouse: Mouse;
+  private readonly tooltip: Tooltip;
+  private readonly patternTextures: PatternTextures;
+
+  // State
+  private lastTime: number | null = null;
+  private scene: Scene;
+
+  constructor(wave: W.Wave, canvas: HTMLCanvasElement) {
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    this.camera = new THREE.OrthographicCamera();
+    this.camera.near = 0.1;
+    this.camera.far = 1000;
+    this.camera.position.z = 10;
+    this.mouse = new Mouse(canvas);
+    this.tooltip = new Tooltip(this.mouse, canvas);
+    this.patternTextures = renderPatternTextures(
+      Object.values(Items).filter(
+        (item): item is W.Pattern => W.kind(item) === "pattern"
+      )
+    );
+
+    this.scene = new WaveScene(wave, {
+      mouse: this.mouse,
+      tooltip: this.tooltip,
+      patternTextures: this.patternTextures,
+      scene: new THREE.Scene(),
+      camera: this.camera,
+    });
+
+    this.onResize();
+    window.addEventListener("resize", this.onResize.bind(this));
+    requestAnimationFrame(this.onAnimationFrame.bind(this));
+  }
+
+  private onResize() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    this.renderer.setSize(w, h, false);
+    this.camera.left = 0;
+    this.camera.right = w;
+    this.camera.top = h;
+    this.camera.bottom = 0;
+    this.camera.updateProjectionMatrix();
+  }
+
+  private onAnimationFrame(time: number) {
+    // Preamble
+    if (this.lastTime === null) {
+      this.lastTime = time;
+    }
+    // const dt = (time - this.lastTime) / 1000; // for animation
+    this.lastTime = time;
+    this.mouse.update();
+
+    // Update scene
+    this.scene.update();
+
+    // Render
+    this.mouse.postUpdate();
+    this.renderer.render(this.scene.context.scene, this.camera);
+    requestAnimationFrame(this.onAnimationFrame.bind(this));
+    LOG.tick();
   }
 }
