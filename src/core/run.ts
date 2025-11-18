@@ -83,26 +83,23 @@ export class Run {
     // Handle outcome of previous phase
     if (this.phaseIndex >= 0) {
       if (lastPhase === undefined) {
-        throw new Error("Must return a trigger, unless it's the first phase");
+        throw new Error("Must provide lastPhase, unless it's the first phase");
       }
-      const phase = this.s.schedule[this.phaseIndex];
-      if (phase.type === "select" && lastPhase.phase == "select") {
+      if (lastPhase.phase !== this.s.schedule[this.phaseIndex].type) {
+        console.error("lastPhase does not match expected phase type");
+      }
+      if (lastPhase.phase == "select") {
         if (lastPhase.selected !== null) {
           this.items.push(lastPhase.offers[lastPhase.selected]);
           this.items.sort((a, b) => a.priority - b.priority);
         }
-      } else if (phase.type === "wave" && lastPhase.phase == "wave") {
+      } else if (lastPhase.phase == "wave") {
         if (lastPhase.status === "playing") {
-          console.error(
-            "next() while Wave is still playing -- treating as a win"
-          );
+          console.error("Wave is still playing -- treating as a win");
         }
         if (lastPhase.status === "lose") {
           return new RunOutcome("lose");
         }
-        this.phaseIndex++;
-      } else {
-        throw new Error("Trigger does not match current phase");
       }
     }
     // Advance to next phase

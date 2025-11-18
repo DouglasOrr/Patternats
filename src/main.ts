@@ -9,6 +9,8 @@ window.onload = () => {
       { type: "select", kind: "pattern" },
       { type: "select" },
       { type: "wave", targetScore: 100 },
+      { type: "select" },
+      { type: "wave", targetScore: 200 },
     ],
     maxFrames: 3,
     maxRolls: 1,
