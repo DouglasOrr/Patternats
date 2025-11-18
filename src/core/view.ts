@@ -29,6 +29,7 @@ class Logger {
 }
 const LOG = new Logger();
 
+type CBox = { cx: number; cy: number; w: number; h: number };
 type Box = { left: number; right: number; bottom: number; top: number };
 
 function backgroundColor(): THREE.Color {
@@ -117,7 +118,7 @@ class Tooltip {
 
   show(
     tag: any,
-    when: boolean | Box,
+    when: boolean | CBox,
     content?: () => string,
     position?: [number, number]
   ): void {
@@ -127,10 +128,10 @@ class Tooltip {
         ? true
         : when === false
         ? false
-        : when.left <= mouseX &&
-          mouseX <= when.right &&
-          when.bottom <= mouseY &&
-          mouseY <= when.top;
+        : when.cx - when.w / 2 <= mouseX &&
+          mouseX <= when.cx + when.w / 2 &&
+          when.cy - when.h / 2 <= mouseY &&
+          mouseY <= when.cy + when.h / 2;
     if (shown) {
       this.element.style.display = "block";
       this.element.innerHTML = content ? content() : "";
@@ -400,16 +401,7 @@ class Button implements Component {
     }
     // Tooltip
     if (this.tipText !== null) {
-      this.context.tooltip.show(
-        this,
-        {
-          left: cx - w / 2,
-          right: cx + w / 2,
-          bottom: cy - h / 2,
-          top: cy + h / 2,
-        },
-        () => this.tipText!
-      );
+      this.context.tooltip.show(this, { cx, cy, w, h }, () => this.tipText!);
     }
   }
 }
@@ -506,10 +498,10 @@ class MenuView {
     this.context.tooltip.show(
       this,
       {
-        left: pipsX - pipsW / 2,
-        right: pipsX + pipsW / 2,
-        bottom: cy - pipsH / 2,
-        top: cy + pipsH / 2,
+        cx: pipsX,
+        cy: cy,
+        w: pipsW,
+        h: pipsH,
       },
       () => `Wave ${this.run.waveCount()} of ${this.run.totalWaves()}`
     );
@@ -696,7 +688,7 @@ class ProgressView {
   ) {
     this.outline = new THREE.Mesh(
       new THREE.PlaneGeometry(1, 1),
-      new THREE.MeshBasicMaterial({ color: 0x161616 })
+      new THREE.MeshBasicMaterial({ color: 0x181818 })
     );
     this.outline.position.z = 0;
 
@@ -729,7 +721,7 @@ class ProgressView {
   update(bounds: Box): void {
     // Basic layout
     const w = bounds.right - bounds.left;
-    const h = 0.85 * (bounds.top - bounds.bottom);
+    const h = 1 * (bounds.top - bounds.bottom);
     const inset = 0.2 * Math.min(w, h);
     const innerW = w - 2 * inset;
     const innerH = h - 2 * inset;
@@ -792,7 +784,7 @@ class ProgressView {
         ]
       );
     } else {
-      this.context.tooltip.show(this, bounds, () => {
+      this.context.tooltip.show(this, { cx, cy, w, h }, () => {
         return `${progressAll} nnats (- ${this.wave.score.total})`;
       });
     }
