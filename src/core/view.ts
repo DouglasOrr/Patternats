@@ -419,7 +419,11 @@ class Pips implements Component {
   private readonly fills: THREE.Mesh[] = [];
   private readonly outlines: THREE.Mesh[] = [];
 
-  constructor(readonly total: number, scene: THREE.Scene) {
+  constructor(
+    readonly total: number,
+    scene: THREE.Scene,
+    readonly fillFrom: "left" | "right" = "left"
+  ) {
     const fillGeometry = new THREE.CircleGeometry(0.5, 24);
     const outlineGeometry = new THREE.RingGeometry(0.42, 0.5, 24);
     const fillMaterial = new THREE.MeshBasicMaterial({ color: 0xb37e1d });
@@ -451,12 +455,66 @@ class Pips implements Component {
       this.outlines[i].scale.set(scale, scale, 1);
       this.fills[i].position.set(x, cy, this.fills[i].position.z);
       this.fills[i].scale.set(scale, scale, 1);
-      this.fills[i].visible = this.total - 1 - i < filled;
+      this.fills[i].visible =
+        this.fillFrom === "left" ? i < filled : this.total - 1 - i < filled;
     }
   }
 }
 
 // Views
+
+class MenuView {
+  private readonly background: THREE.Mesh;
+  private readonly progress: Pips;
+
+  constructor(
+    private readonly run: R.Run,
+    private readonly context: ViewContext
+  ) {
+    this.background = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 1),
+      new THREE.MeshBasicMaterial({ color: 0x2b2b2b })
+    );
+    this.background.position.z = 0;
+    context.scene.add(this.background);
+    this.progress = new Pips(this.run.totalWaves(), context.scene);
+  }
+
+  update(bounds: Box): void {
+    this.progress.filled = this.run.waveCount();
+
+    const InsetRatio = 0.05;
+    const PipHeightRatio = 0.5;
+    const PipMaxAspect = 1.5;
+
+    const cx = (bounds.left + bounds.right) / 2;
+    const cy = (bounds.bottom + bounds.top) / 2;
+    const w = bounds.right - bounds.left;
+    const h = bounds.top - bounds.bottom;
+    this.background.position.set(cx, cy, this.background.position.z);
+    this.background.scale.set(w, h, 1);
+
+    const inset = InsetRatio * Math.min(w, h);
+    const pipsH = PipHeightRatio * (h - 2 * inset);
+    const pipsW = Math.min(
+      PipMaxAspect * pipsH * this.progress.total,
+      w - 2 * inset
+    );
+    const pipsX = bounds.left + inset + pipsW / 2;
+    this.progress.update(pipsX, cy, pipsW, pipsH);
+
+    this.context.tooltip.show(
+      this,
+      {
+        left: pipsX - pipsW / 2,
+        right: pipsX + pipsW / 2,
+        bottom: cy - pipsH / 2,
+        top: cy + pipsH / 2,
+      },
+      () => `Wave ${this.run.waveCount()} of ${this.run.totalWaves()}`
+    );
+  }
+}
 
 class GridView {
   private readonly cells: InstancedSpriteSheet;
@@ -883,8 +941,8 @@ class PanelView {
     const patterns = this.wave.s.patterns.map((p) => itemButton(p, context));
     const bonuses = this.wave.s.bonuses.map((b) => itemButton(b, context));
 
-    this.framePips = new Pips(this.wave.s.maxFrames, context.scene);
-    this.rerollPips = new Pips(this.wave.s.maxRolls, context.scene);
+    this.framePips = new Pips(this.wave.s.maxFrames, context.scene, "left");
+    this.rerollPips = new Pips(this.wave.s.maxRolls, context.scene, "left");
 
     this.panelView = new DynamicRowsView(
       [
@@ -986,6 +1044,50 @@ class SelectOffersView {
 
 // Scenes
 
+function topLevelLayout(context: ViewContext): {
+  menu: Box;
+  main: Box;
+  progress: Box;
+  panel: Box;
+} {
+  const w = context.camera.right - context.camera.left;
+  const h = context.camera.top - context.camera.bottom;
+  const pad = 0.02 * w;
+  const panelW = Math.min(0.25 * w, 0.3 * h);
+  const menuH = 0.25 * panelW;
+  const bodyH = h - 3 * pad - menuH;
+  const progressW = Math.min(0.03 * w, 0.03 * bodyH);
+  const gridSize = Math.min(bodyH, w - panelW - progressW - 4 * pad);
+  const bodyY = context.camera.bottom + pad + bodyH / 2 - gridSize / 2;
+  const x0 = context.camera.left + pad;
+  return {
+    menu: {
+      left: x0,
+      right: context.camera.right - pad,
+      bottom: context.camera.top - pad - menuH,
+      top: context.camera.top - pad,
+    },
+    main: {
+      left: x0,
+      right: x0 + gridSize,
+      bottom: bodyY,
+      top: bodyY + gridSize,
+    },
+    progress: {
+      left: x0 + gridSize + pad,
+      right: x0 + gridSize + pad + progressW,
+      bottom: bodyY,
+      top: bodyY + gridSize,
+    },
+    panel: {
+      left: x0 + gridSize + pad + progressW + pad,
+      right: x0 + gridSize + pad + progressW + pad + panelW,
+      bottom: bodyY,
+      top: bodyY + gridSize,
+    },
+  };
+}
+
 interface Scene {
   readonly context: ViewContext;
   phase(): W.Wave | R.Select | R.RunOutcome;
@@ -995,12 +1097,18 @@ interface Scene {
 }
 
 class WaveScene implements Scene {
+  private readonly menu: MenuView;
   private readonly gridView: GridView;
   private readonly progressView: ProgressView;
   private readonly panelView: PanelView;
 
-  constructor(readonly wave: W.Wave, readonly context: ViewContext) {
+  constructor(
+    run: R.Run,
+    readonly wave: W.Wave,
+    readonly context: ViewContext
+  ) {
     context.scene.background = backgroundColor();
+    this.menu = new MenuView(run, context);
     this.progressView = new ProgressView(wave, context);
     this.panelView = new PanelView(wave, context);
     this.gridView = new GridView(
@@ -1020,8 +1128,9 @@ class WaveScene implements Scene {
   }
 
   update(): void {
-    const layout = WaveScene.topLevelLayout(this.context);
-    this.gridView.update(layout.grid);
+    const layout = topLevelLayout(this.context);
+    this.menu.update(layout.menu);
+    this.gridView.update(layout.main);
     this.progressView.update(layout.progress);
     this.panelView.update(layout.panel);
   }
@@ -1029,50 +1138,22 @@ class WaveScene implements Scene {
   dispose(): void {
     // TODO
   }
-
-  static topLevelLayout(context: ViewContext): {
-    grid: Box;
-    progress: Box;
-    panel: Box;
-  } {
-    const w = context.camera.right - context.camera.left;
-    const h = context.camera.top - context.camera.bottom;
-    const pad = 0.02 * w;
-    const panelW = 0.25 * w;
-    const progressW = Math.min(0.03 * w, 0.03 * (h - 2 * pad));
-    const gridSize = Math.min(h - 2 * pad, w - panelW - progressW - 4 * pad);
-    const y = h / 2 - gridSize / 2;
-    return {
-      grid: {
-        left: pad,
-        right: pad + gridSize,
-        bottom: y,
-        top: y + gridSize,
-      },
-      progress: {
-        left: pad + gridSize + pad,
-        right: pad + gridSize + pad + progressW,
-        bottom: y,
-        top: y + gridSize,
-      },
-      panel: {
-        left: pad + gridSize + pad + progressW + pad,
-        right: pad + gridSize + pad + progressW + pad + panelW,
-        bottom: y,
-        top: y + gridSize,
-      },
-    };
-  }
 }
 
 class SelectScene implements Scene {
-  private readonly inventory: SelectInventoryView;
+  private readonly menu: MenuView;
   private readonly offers: SelectOffersView;
+  private readonly inventory: SelectInventoryView;
 
-  constructor(readonly select: R.Select, readonly context: ViewContext) {
+  constructor(
+    run: R.Run,
+    readonly select: R.Select,
+    readonly context: ViewContext
+  ) {
     context.scene.background = backgroundColor();
-    this.inventory = new SelectInventoryView(select, context);
+    this.menu = new MenuView(run, context);
     this.offers = new SelectOffersView(select, context);
+    this.inventory = new SelectInventoryView(select, context);
   }
 
   phase(): R.Select {
@@ -1084,9 +1165,10 @@ class SelectScene implements Scene {
   }
 
   update(): void {
-    const layout = WaveScene.topLevelLayout(this.context);
+    const layout = topLevelLayout(this.context);
+    this.menu.update(layout.menu);
+    this.offers.update(layout.main);
     this.inventory.update(layout.panel);
-    this.offers.update(layout.grid);
   }
 
   dispose(): void {
@@ -1167,9 +1249,9 @@ class Renderer {
       camera: this.camera,
     };
     if (nextPhase.phase === "wave") {
-      this.scene = new WaveScene(nextPhase, context);
+      this.scene = new WaveScene(this.run, nextPhase, context);
     } else if (nextPhase.phase === "select") {
-      this.scene = new SelectScene(nextPhase, context);
+      this.scene = new SelectScene(this.run, nextPhase, context);
     } else if (nextPhase.phase === "outcome") {
       this.scene = new RunOutcomeScene(nextPhase, context);
     } else {

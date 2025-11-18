@@ -47,6 +47,23 @@ export class Run {
     this.items.sort((a, b) => a.priority - b.priority);
   }
 
+  totalWaves(): number {
+    return this.s.schedule.reduce(
+      (acc, phase) => acc + +(phase.type === "wave"),
+      0
+    );
+  }
+
+  waveCount(): number {
+    let count = 0;
+    for (let i = 0; i <= this.phaseIndex; i++) {
+      if (this.s.schedule[i].type === "wave") {
+        count++;
+      }
+    }
+    return count;
+  }
+
   private select(phase: SelectPhase): Select {
     const offers: W.Item[] = [];
     for (let n = 0; n < this.s.offers; n++) {
