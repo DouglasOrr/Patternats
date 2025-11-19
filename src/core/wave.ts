@@ -155,6 +155,7 @@ export class Grid {
 export interface ItemBase {
   name: string;
   title: string;
+  freq: "common" | "uncommon" | "rare";
   priority: number;
   limit?: number; // or 1
 }

@@ -1,20 +1,62 @@
 import { Items } from "./items";
 import * as W from "./wave";
 
-// Select & RunOutcome
+// Select
+
+function sampleWeighted<T>(items: T[], weights: number[]): T {
+  const totalWeight = weights.reduce((a, b) => a + b, 0);
+  let r = Math.random() * totalWeight;
+  for (let i = 0; i < items.length; i++) {
+    if (r < weights[i]) {
+      return items[i];
+    }
+    r -= weights[i];
+  }
+  return items[items.length - 1];
+}
+
+export type Chance = { common: number; uncommon: number; rare: number };
 
 export class Select {
   phase: "select" = "select";
   selected: number | null = null;
+
   constructor(readonly items: W.Item[], readonly offers: W.Item[]) {}
+
+  static sample(
+    items: W.Item[],
+    count: number,
+    chance: Chance,
+    only?: "pattern" | "action" | "bonus"
+  ): Select {
+    const offers: W.Item[] = [];
+    for (let n = 0; n < count; n++) {
+      const candidates = Object.values(Items).filter(
+        (item) =>
+          (only === undefined || item.kind === only) &&
+          items.reduce((c, i) => c + +(i.name === item.name), 0) <
+            (item.limit ?? 1) &&
+          !offers.includes(item)
+      );
+      if (candidates.length === 0) {
+        // can't find enough candidates, return what we have
+        return new Select(items, offers);
+      }
+      const weights = candidates.map((item) => chance[item.freq]);
+      offers.push(sampleWeighted(candidates, weights));
+    }
+    return new Select(items, offers);
+  }
 }
+
+// Run outcome
 
 export class RunOutcome {
   phase: "outcome" = "outcome";
   constructor(readonly result: "win" | "lose") {}
 }
 
-// Run
+// Run config
 
 export interface WavePhase {
   type: "wave";
@@ -22,7 +64,8 @@ export interface WavePhase {
 }
 export interface SelectPhase {
   type: "select";
-  kind?: "pattern" | "action" | "bonus";
+  chance: Chance;
+  only?: "pattern" | "action" | "bonus";
 }
 export type Phase = WavePhase | SelectPhase;
 
@@ -37,6 +80,46 @@ export interface RunSettings {
   // Select
   offers: number;
 }
+
+export function standardSettings(
+  waves: number,
+  chanceStart: Chance,
+  chanceEnd: Chance
+): RunSettings {
+  const schedule: Phase[] = [
+    {
+      type: "select",
+      only: "pattern",
+      chance: chanceStart,
+    },
+  ];
+  for (let w = 0; w < waves; w++) {
+    const c0 = chanceStart;
+    const c1 = chanceEnd;
+    const r = w / (waves - 1);
+    schedule.push({
+      type: "select",
+      chance: {
+        common: c0.common + r * (c1.common - c0.common),
+        uncommon: c0.uncommon + r * (c1.uncommon - c0.uncommon),
+        rare: c0.rare + r * (c1.rare - c0.rare),
+      },
+    });
+    schedule.push({ type: "wave", targetScore: (w + 1) * 100 });
+  }
+
+  return {
+    items: [Items["swap"], Items["swap"]],
+    schedule: schedule,
+    maxFrames: 3,
+    maxRolls: 1,
+    gridRows: 9,
+    gridCols: 9,
+    offers: 3,
+  };
+}
+
+// Run
 
 export class Run {
   readonly items: W.Item[];
@@ -62,38 +145,6 @@ export class Run {
       }
     }
     return count;
-  }
-
-  private select(phase: SelectPhase): Select {
-    const offers: W.Item[] = [];
-    for (let n = 0; n < this.s.offers; n++) {
-      const candidates = Object.values(Items).filter(
-        (item) =>
-          (phase.kind === undefined || item.kind === phase.kind) &&
-          this.items.reduce((c, i) => c + +(i.name === item.name), 0) <
-            (item.limit ?? 1) &&
-          !offers.includes(item)
-      );
-      if (candidates.length === 0) {
-        // can't find enough candidates, return what we have
-        return new Select(this.items, offers);
-      }
-      offers.push(candidates[Math.floor(Math.random() * candidates.length)]);
-    }
-    return new Select(this.items, offers);
-  }
-
-  private wave(phase: WavePhase): W.Wave {
-    return new W.Wave({
-      patterns: this.items.filter((item) => item.kind === "pattern"),
-      actions: this.items.filter((item) => item.kind === "action"),
-      bonuses: this.items.filter((item) => item.kind === "bonus"),
-      gridRows: this.s.gridRows,
-      gridCols: this.s.gridCols,
-      targetScore: phase.targetScore,
-      maxFrames: this.s.maxFrames,
-      maxRolls: this.s.maxRolls,
-    });
   }
 
   next(lastPhase?: W.Wave | Select | RunOutcome): W.Wave | Select | RunOutcome {
@@ -127,9 +178,18 @@ export class Run {
     // Return next phase
     const phase = this.s.schedule[this.phaseIndex];
     if (phase.type === "select") {
-      return this.select(phase);
+      return Select.sample(this.items, this.s.offers, phase.chance, phase.only);
     } else if (phase.type === "wave") {
-      return this.wave(phase);
+      return new W.Wave({
+        patterns: this.items.filter((item) => item.kind === "pattern"),
+        actions: this.items.filter((item) => item.kind === "action"),
+        bonuses: this.items.filter((item) => item.kind === "bonus"),
+        gridRows: this.s.gridRows,
+        gridCols: this.s.gridCols,
+        targetScore: phase.targetScore,
+        maxFrames: this.s.maxFrames,
+        maxRolls: this.s.maxRolls,
+      });
     }
     throw new Error(`Unexpected phase ${JSON.stringify(phase)}`);
   }

@@ -31,6 +31,7 @@ test("Pattern find", () => {
     name: "test",
     title: "Test",
     points: 0,
+    freq: "common" as const,
     priority: 0,
   };
   const matches = G.findMatches(pattern, grid);

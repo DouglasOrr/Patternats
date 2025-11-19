@@ -29,6 +29,12 @@ class Logger {
 }
 const LOG = new Logger();
 
+const Colors = {
+  foreground: 0xffffff,
+  outline: 0x888888,
+  item_outline: { common: 0x888888, uncommon: 0x1d2fb7, rare: 0xb12121 },
+};
+
 type CBox = { cx: number; cy: number; w: number; h: number };
 type Box = { left: number; right: number; bottom: number; top: number };
 
@@ -349,6 +355,7 @@ class Button implements Component {
 
   constructor(
     texture: THREE.Texture,
+    outlineColor: number,
     private readonly tipText: string | null,
     private readonly context: ViewContext,
     private readonly click?: (button: Button) => void,
@@ -364,7 +371,7 @@ class Button implements Component {
     this.mesh.position.z = 0.05;
     this.context.scene.add(this.mesh);
 
-    this.outline = new Outline(0x447744, 0.05, this.context.scene);
+    this.outline = new Outline(outlineColor, 0.05, this.context.scene);
   }
 
   update(cx: number, cy: number, w: number, h: number): void {
@@ -791,24 +798,38 @@ class ProgressView {
   }
 }
 
+function itemFreqHtml(freq: "common" | "uncommon" | "rare"): string {
+  const text = freq.charAt(0).toUpperCase() + freq.slice(1);
+  const color = Colors.item_outline[freq].toString(16).padStart(6, "0");
+  return `<span style="color: #${color}; font-weight: bold;">(${text})</span>`;
+}
+
 function itemButton(
   item: W.Item,
   context: ViewContext,
-  click?: (button: Button) => void
+  click?: (button: Button) => void,
+  style: "plain" | "rich" = "plain"
 ): Button {
   let tipText: string;
+  const freq = style === "plain" ? "" : " " + itemFreqHtml(item.freq);
   if (item.kind === "action") {
-    tipText = `<b>${item.title}</b><br>${item.description}`;
+    tipText = `<b>${item.title}</b>${freq}<br>${item.description}`;
   } else if (item.kind === "pattern") {
     tipText =
-      `<b>${item.title}</b> [${item.grid.rows}×${item.grid.cols}]` +
+      `<b>${item.title}</b> [${item.grid.rows}×${item.grid.cols}]${freq}` +
       `<br>-${item.points} nnats`;
   } else if (item.kind === "bonus") {
-    tipText = `<b>${item.title}</b><br>${item.description}`;
+    tipText = `<b>${item.title}</b>${freq}<br>${item.description}`;
   } else {
     throw new Error(`Unknown item kind for item ${JSON.stringify(item)}`);
   }
-  return new Button(loadTexture(item), tipText, context, click);
+  return new Button(
+    loadTexture(item),
+    style === "plain" ? Colors.outline : Colors.item_outline[item.freq],
+    tipText,
+    context,
+    click
+  );
 }
 
 class DynamicRowsView {
@@ -914,6 +935,7 @@ class PanelView {
       (control) =>
         new Button(
           loadTexture(`img/control/${control.name}.png`),
+          Colors.foreground,
           /*tipText*/ null,
           context,
           () => control.click(this.wave),
@@ -923,12 +945,17 @@ class PanelView {
         )
     );
     this.actions = this.wave.s.actions.map((action) =>
-      itemButton(action, context, (button) => {
-        this.actions.forEach((b) => {
-          b.selected = false;
-        });
-        button.selected = true;
-      })
+      itemButton(
+        action,
+        context,
+        (button) => {
+          this.actions.forEach((b) => {
+            b.selected = false;
+          });
+          button.selected = true;
+        },
+        "plain"
+      )
     );
     const patterns = this.wave.s.patterns.map((p) => itemButton(p, context));
     const bonuses = this.wave.s.bonuses.map((b) => itemButton(b, context));
@@ -992,7 +1019,7 @@ class SelectInventoryView {
       .map((kind) =>
         select.items
           .filter((item) => item.kind === kind)
-          .map((item) => itemButton(item, context))
+          .map((item) => itemButton(item, context, undefined, "rich"))
       )
       .filter((row) => row.length > 0)
       .map((components) => ({ components: components }));
@@ -1010,11 +1037,16 @@ class SelectOffersView {
 
   constructor(readonly select: R.Select, context: ViewContext) {
     for (const [index, item] of select.offers.entries()) {
-      this.items.push(
-        itemButton(item, context, () => {
+      const button = itemButton(
+        item,
+        context,
+        () => {
           select.selected = index;
-        })
+        },
+        "rich"
       );
+      button.selected = true;
+      this.items.push(button);
     }
   }
 

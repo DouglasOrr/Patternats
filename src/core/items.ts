@@ -22,6 +22,7 @@ r({
     [cellsOut[arg.i], cellsOut[arg.j]] = [cellsOut[arg.j], cellsOut[arg.i]];
     return grid.replace(cellsOut);
   },
+  freq: "uncommon",
   limit: Infinity,
   priority: p++,
 });
@@ -34,6 +35,7 @@ r({
   title: "Square S",
   grid: Grid.parse("xx/xx"),
   points: 4,
+  freq: "common",
   priority: p++,
 });
 
@@ -43,6 +45,7 @@ r({
   title: "Square M",
   grid: Grid.parse("xxx/xxx/xxx"),
   points: 20,
+  freq: "uncommon",
   priority: p++,
 });
 
@@ -52,6 +55,7 @@ r({
   title: "Square L",
   grid: Grid.parse("xxxx/xxxx/xxxx/xxxx"),
   points: 150,
+  freq: "rare",
   priority: p++,
 });
 
@@ -61,6 +65,7 @@ r({
   title: "Plus",
   grid: Grid.parse("-x-/xxx/-x-"),
   points: 25,
+  freq: "common",
   priority: p++,
 });
 
@@ -70,6 +75,7 @@ r({
   title: "Rhode Island Z",
   grid: Grid.parse("-xx/xx-"),
   points: 12,
+  freq: "common",
   limit: Infinity,
   priority: p++,
 });
@@ -84,6 +90,7 @@ r({
   onScore(score: Score): void {
     score.flatPoints += 20;
   },
+  freq: "common",
   limit: Infinity,
   priority: p++,
 });

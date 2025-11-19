@@ -1,22 +1,13 @@
-import { Items } from "./core/items";
 import * as R from "./core/run";
 import * as V from "./core/view";
 
 window.onload = () => {
-  const run = new R.Run({
-    items: [Items["swap"], Items["swap"]],
-    schedule: [
-      { type: "select", kind: "pattern" },
-      { type: "select" },
-      { type: "wave", targetScore: 100 },
-      { type: "select" },
-      { type: "wave", targetScore: 200 },
-    ],
-    maxFrames: 3,
-    maxRolls: 1,
-    gridRows: 9,
-    gridCols: 9,
-    offers: 3,
-  });
+  const run = new R.Run(
+    R.standardSettings(
+      /*waves*/ 3,
+      { common: 4, uncommon: 2, rare: 1 },
+      { common: 1, uncommon: 2, rare: 2 }
+    )
+  );
   V.start(run);
 };
