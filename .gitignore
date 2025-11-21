@@ -1,6 +1,8 @@
+.venv
+.vscode
+
 /assets
 /dist
+/doc/items.json
 /local
 /node_modules
-
-.vscode
