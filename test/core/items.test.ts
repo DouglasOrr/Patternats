@@ -10,12 +10,29 @@ test("Action swap", () => {
   expect(swapped.get(1, 0)).toBe(G.Cell.X);
 });
 
-test("all patterns have one connected component", () => {
-  for (const itemName in Items) {
-    const item = Items[itemName];
+describe("patterns", () => {
+  for (const [itemName, item] of Object.entries(Items)) {
     if (item.kind === "pattern") {
-      const c = item.grid.getComponents();
-      expect(c.components.length).toBe(1);
+      describe(`pattern ${itemName}`, () => {
+        test("one connected component", () => {
+          const c = item.grid.getComponents();
+          expect(c.components.length).toBe(1);
+        });
+
+        test("is not a duplicate", () => {
+          for (const other of Object.values(Items)) {
+            if (
+              other.kind === "pattern" &&
+              other.name !== item.name &&
+              other.grid.dump() === item.grid.dump()
+            ) {
+              throw new Error(
+                `Pattern ${item.name} is a duplicate of ${other.name}`
+              );
+            }
+          }
+        });
+      });
     }
   }
 });

@@ -152,10 +152,12 @@ export class Grid {
 
 // Items
 
+export type Frequency = "common" | "uncommon" | "rare";
+
 export interface ItemBase {
   name: string;
   title: string;
-  freq: "common" | "uncommon" | "rare";
+  freq: Frequency;
   priority: number;
   limit?: number; // or 1
 }

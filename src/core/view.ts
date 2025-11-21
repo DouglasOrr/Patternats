@@ -187,6 +187,7 @@ function renderPatternTexture(pattern: W.Pattern): THREE.Texture {
     if (cell !== W.Cell.O) {
       const cx = Size * 0.5 + cellSize * (col + 0.5 - pattern.grid.cols / 2);
       const cy = Size * 0.5 + cellSize * (row + 0.5 - pattern.grid.rows / 2);
+      ctx.fillStyle = "#ffffff";
       ctx.fillRect(cx - fillSize / 2, cy - fillSize / 2, fillSize, fillSize);
     }
   }
@@ -796,7 +797,7 @@ class ProgressView {
   }
 }
 
-function itemFreqHtml(freq: "common" | "uncommon" | "rare"): string {
+function itemFreqHtml(freq: W.Frequency): string {
   const text = freq.charAt(0).toUpperCase() + freq.slice(1);
   const color = Colors.item_outline[freq].toString(16).padStart(6, "0");
   return `<span style="color: #${color}; font-weight: bold;">(${text})</span>`;
