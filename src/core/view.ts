@@ -943,15 +943,19 @@ class PanelView {
           }
         )
     );
-    this.actions = this.wave.s.actions.map((action) =>
+    this.actions = this.wave.s.actions.map((action, index) =>
       itemButton(
         action,
         context,
         (button) => {
-          this.actions.forEach((b) => {
-            b.selected = false;
-          });
-          button.selected = true;
+          if (action.name === "swap") {
+            this.actions.forEach((b) => {
+              b.selected = false;
+            });
+            button.selected = true;
+          } else {
+            this.wave.execute(index);
+          }
         },
         "plain"
       )

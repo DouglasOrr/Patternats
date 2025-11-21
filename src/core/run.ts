@@ -84,7 +84,8 @@ export interface RunSettings {
 export function standardSettings(
   waves: number,
   chanceStart: Chance,
-  chanceEnd: Chance
+  chanceEnd: Chance,
+  startingItems: W.Item[] = [Items["swap"], Items["swap"]]
 ): RunSettings {
   const schedule: Phase[] = [
     {
@@ -109,7 +110,7 @@ export function standardSettings(
   }
 
   return {
-    items: [Items["swap"], Items["swap"]],
+    items: startingItems,
     schedule: schedule,
     maxFrames: 3,
     maxRolls: 1,

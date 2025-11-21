@@ -402,7 +402,7 @@ export class Wave {
 
   // Actions
 
-  execute(action: number, arg: any): void {
+  execute(action: number, arg?: any): void {
     for (let i = 0; i <= this.stateIndex; i++) {
       if (this.state[i].action === action) {
         console.error(

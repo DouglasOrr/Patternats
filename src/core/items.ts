@@ -1,4 +1,4 @@
-import { Frequency, Grid, Item, Score } from "./wave";
+import { Frequency, Grid, Item, Score, Cell } from "./wave";
 
 export const Items = {} as { [name: string]: Item };
 
@@ -84,10 +84,33 @@ action(
   { limit: Infinity }
 );
 
+action(
+  "gravity",
+  ["Gravity", "everything falls to the floor"],
+  "rare",
+  (grid: Grid) => {
+    const cellsOut = grid.cells.slice();
+    for (let col = 0; col < grid.cols; col++) {
+      let writeR = grid.rows - 1;
+      for (let r = grid.rows - 1; r >= 0; r--) {
+        const cell = grid.cells[r * grid.cols + col];
+        if (cell !== Cell.O) {
+          cellsOut[writeR * grid.cols + col] = cell;
+          writeR--;
+        }
+      }
+      for (; writeR >= 0; writeR--) {
+        cellsOut[writeR * grid.cols + col] = Cell.O;
+      }
+    }
+    return grid.replace(cellsOut);
+  }
+);
+
 // Patterns
 
 pattern("Square S", "xx/xx", 1, "common");
-pattern("Square M", "xxx/xxx/xxx", 40, "uncommon");
+pattern("Square M", "xxx/xxx/xxx", 30, "common");
 pattern("Square L", "xxxx/xxxx/xxxx/xxxx", 250, "rare");
 pattern("Square XL", "xxxxx/xxxxx/xxxxx/xxxxx/xxxxx", 1000, "rare");
 
@@ -97,10 +120,10 @@ pattern("Line L", "xxxxxx", 10, "uncommon");
 pattern("Column L", "x/x/x/x/x/x", 10, "uncommon");
 
 pattern("Plus", "-x-/xxx/-x-", 50, "common");
-pattern("Heli Pad", "x-x/xxx/x-x", 50, "common");
-pattern("Four", "x-x/xxx/--x", 50, "common");
-pattern("T", "xxx/-x-/-x-", 50, "common");
 pattern("Box", "xxx/x-x/xxx", 50, "common");
+pattern("Heli Pad", "x-x/xxx/x-x", 50, "common");
+pattern("Four", "x-x/xxx/--x", 50, "uncommon");
+pattern("T", "xxx/-x-/-x-", 50, "uncommon");
 pattern("B2", "xxx/-xx/--x", 75, "rare");
 pattern("R pentomino", "-xx/xx-/-x-", 75, "rare");
 
