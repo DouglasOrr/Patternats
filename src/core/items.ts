@@ -85,6 +85,18 @@ action(
 );
 
 action(
+  "wildcard",
+  ["Wildcard", "add a wildcard cell, which can match O or X"],
+  "uncommon",
+  (grid: Grid, arg: { i: number }) => {
+    const cellsOut = grid.cells.slice();
+    cellsOut[arg.i] = Cell.W;
+    return grid.replace(cellsOut);
+  },
+  { limit: Infinity }
+);
+
+action(
   "gravity",
   ["Gravity", "everything falls to the floor"],
   "rare",

@@ -8,7 +8,7 @@ window.onload = () => {
       /*waves*/ 3,
       { common: 4, uncommon: 2, rare: 1 },
       { common: 1, uncommon: 2, rare: 2 },
-      [Items["swap"], Items["swap"]]
+      [Items["swap"], Items["swap"], Items["gravity"], Items["wildcard"]]
     )
   );
   V.start(run);

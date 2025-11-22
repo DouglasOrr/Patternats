@@ -358,7 +358,8 @@ class Button implements Component {
     private readonly tipText: string | null,
     private readonly context: ViewContext,
     private readonly click?: (button: Button) => void,
-    private readonly onUpdate?: (button: Button) => void
+    private readonly onUpdate?: (button: Button) => void,
+    readonly selectable: boolean = true
   ) {
     this.mesh = new THREE.Mesh(
       new THREE.PlaneGeometry(1, 1),
@@ -602,7 +603,8 @@ class GridView {
         }
       }
       const actionIdx = this.panel.selectedAction();
-      if (actionIdx !== null && this.wave.s.actions[actionIdx].name == "swap") {
+      if (actionIdx !== null) {
+        const actionName = this.wave.s.actions[actionIdx].name;
         this.hoverOutline.line.visible = true;
         this.hoverOutline.update(
           cellsLeft + (mcol + 0.5) * cellSize,
@@ -611,14 +613,18 @@ class GridView {
           outlineSize
         );
         if (this.context.mouse.click) {
-          const cellIdx = mrow * grid.cols + mcol;
-          if (this.swapSrc === null) {
-            this.swapSrc = cellIdx;
-          } else if (this.swapSrc === cellIdx) {
-            this.swapSrc = null; // cancel
-          } else {
-            this.wave.execute(actionIdx, { i: this.swapSrc, j: cellIdx });
-            this.swapSrc = null;
+          if (actionName == "swap") {
+            const cellIdx = mrow * grid.cols + mcol;
+            if (this.swapSrc === null) {
+              this.swapSrc = cellIdx;
+            } else if (this.swapSrc === cellIdx) {
+              this.swapSrc = null; // cancel
+            } else {
+              this.wave.execute(actionIdx, { i: this.swapSrc, j: cellIdx });
+              this.swapSrc = null;
+            }
+          } else if (actionName == "wildcard") {
+            this.wave.execute(actionIdx, { i: mrow * grid.cols + mcol });
           }
         }
       }
@@ -807,8 +813,11 @@ function itemButton(
   item: W.Item,
   context: ViewContext,
   click?: (button: Button) => void,
-  style: "plain" | "rich" = "plain"
+  s: { style?: "plain" | "rich"; selectable?: boolean } = {}
 ): Button {
+  const style = s.style ?? "plain";
+  const selectable = s.selectable ?? true;
+
   let tipText: string;
   const freq = style === "plain" ? "" : " " + itemFreqHtml(item.freq);
   if (item.kind === "action") {
@@ -827,7 +836,9 @@ function itemButton(
     style === "plain" ? Colors.outline : Colors.item_outline[item.freq],
     tipText,
     context,
-    click
+    click,
+    undefined,
+    selectable
   );
 }
 
@@ -948,7 +959,7 @@ class PanelView {
         action,
         context,
         (button) => {
-          if (action.name === "swap") {
+          if (button.selectable) {
             this.actions.forEach((b) => {
               b.selected = false;
             });
@@ -957,7 +968,7 @@ class PanelView {
             this.wave.execute(index);
           }
         },
-        "plain"
+        { selectable: action.name === "swap" || action.name === "wildcard" }
       )
     );
     const patterns = this.wave.s.patterns.map((p) => itemButton(p, context));
@@ -999,11 +1010,11 @@ class PanelView {
     // Disable unavailable actions and ensure one is selected
     for (const [i, button] of this.actions.entries()) {
       button.enabled = this.wave.hasAction(i);
-      button.selected &&= button.enabled;
+      button.selected &&= button.enabled && button.selectable;
     }
     if (!this.actions.reduce((acc, b) => acc || b.selected, false)) {
       for (const button of this.actions) {
-        if (button.enabled) {
+        if (button.enabled && button.selectable) {
           button.selected = true;
           break;
         }
@@ -1022,7 +1033,9 @@ class SelectInventoryView {
       .map((kind) =>
         select.items
           .filter((item) => item.kind === kind)
-          .map((item) => itemButton(item, context, undefined, "rich"))
+          .map((item) =>
+            itemButton(item, context, undefined, { style: "rich" })
+          )
       )
       .filter((row) => row.length > 0)
       .map((components) => ({ components: components }));
@@ -1046,7 +1059,7 @@ class SelectOffersView {
         () => {
           select.selected = index;
         },
-        "rich"
+        { style: "rich" }
       );
       button.selected = true;
       this.items.push(button);
