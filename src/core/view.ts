@@ -29,10 +29,40 @@ class Logger {
 }
 const LOG = new Logger();
 
+function _c(s: string): THREE.Color {
+  return new THREE.Color(s);
+}
 const Colors = {
-  foreground: 0xffffff,
-  outline: 0x888888,
-  item_outline: { common: 0x888888, uncommon: 0x1d2fb7, rare: 0xb12121 },
+  foreground: _c("#ffffff"),
+  outline: _c("#888888"),
+  tip_background: _c("#000000"),
+  menu_background: _c("#2b2b2b"),
+  pip_fill: _c("#b37e1d"),
+  grid: {
+    hover: _c("#aaaaaa"),
+    src: _c("#447744"),
+    caret: _c("#99aa99"),
+    o: _c("#999999"),
+    xw: _c("#dddddd"),
+    highlight: _c("#eeeeee"),
+    pattern: _c("#ffdd55"),
+  },
+  button: {
+    hovered: _c("#ffffff"),
+    enabled: _c("#aaaaaa"),
+    disabled: _c("#555555"),
+  },
+  item_outline: {
+    common: _c("#888888"),
+    uncommon: _c("#1d2fb7"),
+    rare: _c("#b12121"),
+  },
+  progress: {
+    outline: _c("#181818"),
+    remaining: _c("#447744"),
+    scored: _c("#b37e1d"),
+    hover: _c("#dddddd"),
+  },
 };
 
 type CBox = { cx: number; cy: number; w: number; h: number };
@@ -104,10 +134,11 @@ class Tooltip {
     private readonly mouse: Mouse,
     private readonly canvas: HTMLCanvasElement
   ) {
+    console.log(Colors.tip_background.getHexString());
     this.element = document.createElement("div");
     this.element.style.position = "absolute";
     this.element.style.padding = "6px 8px";
-    this.element.style.background = "#000000cc";
+    this.element.style.background = `#${Colors.tip_background.getHexString()}cc`;
     this.element.style.color = "white";
     this.element.style.fontFamily = "sans-serif";
     this.element.style.fontSize = "12px";
@@ -224,7 +255,7 @@ interface Component {
 class Outline implements Component {
   readonly line: THREE.Line;
 
-  constructor(color: number, z: number, scene: THREE.Scene) {
+  constructor(color: THREE.Color, z: number, scene: THREE.Scene) {
     const geometry = new THREE.BufferGeometry();
     const a = [-0.5, -0.5, 0, 0.5, -0.5, 0, 0.5, 0.5, 0, -0.5, 0.5, 0];
     geometry.setAttribute(
@@ -354,7 +385,7 @@ class Button implements Component {
 
   constructor(
     texture: THREE.Texture,
-    outlineColor: number,
+    outlineColor: THREE.Color,
     private readonly tipText: string | null,
     private readonly context: ViewContext,
     private readonly click?: (button: Button) => void,
@@ -381,11 +412,6 @@ class Button implements Component {
     const HoverSizeRatio = 1.05;
     const OutlinePad = 0.04;
     const InnerSizeRatio = 0.7;
-    const Colors = {
-      hovered: 0xffffff,
-      enabled: 0xaaaaaa,
-      disabled: 0x555555,
-    };
 
     // Hover: size & color
     const hover =
@@ -393,8 +419,12 @@ class Button implements Component {
     const sizeRatio = hover ? HoverSizeRatio * InnerSizeRatio : InnerSizeRatio;
     this.mesh.position.set(cx, cy, this.mesh.position.z);
     this.mesh.scale.set(w * sizeRatio, h * sizeRatio, 1);
-    (this.mesh.material as THREE.MeshBasicMaterial).color.setHex(
-      hover ? Colors.hovered : this.enabled ? Colors.enabled : Colors.disabled
+    (this.mesh.material as THREE.MeshBasicMaterial).color.set(
+      hover
+        ? Colors.button.hovered
+        : this.enabled
+        ? Colors.button.enabled
+        : Colors.button.disabled
     );
 
     // Selected: outline
@@ -425,10 +455,11 @@ class Pips implements Component {
   ) {
     const fillGeometry = new THREE.CircleGeometry(0.5, 24);
     const outlineGeometry = new THREE.RingGeometry(0.42, 0.5, 24);
-    const fillMaterial = new THREE.MeshBasicMaterial({ color: 0xb37e1d });
+    const fillMaterial = new THREE.MeshBasicMaterial({
+      color: Colors.pip_fill,
+    });
     const outlineMaterial = new THREE.MeshBasicMaterial({
-      color: 0x888888,
-      side: THREE.DoubleSide,
+      color: Colors.outline,
     });
     for (let i = 0; i < this.total; i++) {
       const outline = new THREE.Mesh(outlineGeometry, outlineMaterial.clone());
@@ -472,7 +503,7 @@ class MenuView {
   ) {
     this.background = new THREE.Mesh(
       new THREE.PlaneGeometry(1, 1),
-      new THREE.MeshBasicMaterial({ color: 0x2b2b2b })
+      new THREE.MeshBasicMaterial({ color: Colors.menu_background })
     );
     this.background.position.z = 0;
     context.scene.add(this.background);
@@ -540,9 +571,13 @@ class GridView {
       2 * (wave.grid.rows + wave.grid.cols),
       this.context.scene
     );
-    this.hoverOutline = new Outline(0xaaaaaa, 0.05, this.context.scene);
+    this.hoverOutline = new Outline(
+      Colors.grid.hover,
+      0.05,
+      this.context.scene
+    );
     this.hoverOutline.line.visible = false;
-    this.srcOutline = new Outline(0x447744, 0.05, this.context.scene);
+    this.srcOutline = new Outline(Colors.grid.src, 0.05, this.context.scene);
     this.srcOutline.line.visible = false;
   }
 
@@ -551,17 +586,6 @@ class GridView {
     const MarkSizeRatio = 0.5;
     const MarkHoverGrow = 1.05;
     const OutlinePad = 0.04;
-
-    const color = (v: number): [number, number, number] =>
-      new THREE.Color(v).toArray() as [number, number, number];
-
-    const colors = {
-      caret: color(0x99aa99),
-      o: color(0x999999),
-      xw: color(0xdddddd),
-      hover: color(0xeeeeee),
-      pattern: color(0xffdd55),
-    };
 
     const grid = this.wave.grid;
     const cellSize = Math.min(
@@ -679,12 +703,12 @@ class GridView {
       const x = cellsLeft + (col + 0.5) * cellSize;
       const y = cellsTop - (row + 0.5) * cellSize;
       const tint = patternIndices.has(i)
-        ? colors.pattern
+        ? Colors.grid.pattern
         : hoverIndices.has(i)
-        ? colors.hover
-        : grid.cells[i] === 0
-        ? colors.o
-        : colors.xw;
+        ? Colors.grid.highlight
+        : grid.cells[i] === W.Cell.O
+        ? Colors.grid.o
+        : Colors.grid.xw;
       const size = hoverIndices.has(i) ? MarkHoverGrow * markSize : markSize;
       this.cells.update(
         i,
@@ -692,7 +716,7 @@ class GridView {
         /*scale*/ [size, size],
         /*rot*/ 0,
         /*tile*/ [0, 2 - grid.cells[i]],
-        /*tint*/ tint
+        /*tint*/ tint.toArray() as [number, number, number]
       );
       if (i === this.swapSrc) {
         this.srcOutline.update(x, y, outlineSize, outlineSize);
@@ -712,7 +736,7 @@ class GridView {
         /*scale*/ [markSize, 0.5 * markSize],
         /*rot*/ rot,
         /*tile*/ [0, 0],
-        /*tint*/ colors.caret
+        /*tint*/ Colors.grid.caret.toArray() as [number, number, number]
       );
     };
     for (let i = 0; i < grid.cols; i++) {
@@ -738,7 +762,7 @@ class ProgressView {
   ) {
     this.outline = new THREE.Mesh(
       new THREE.PlaneGeometry(1, 1),
-      new THREE.MeshBasicMaterial({ color: 0x181818 })
+      new THREE.MeshBasicMaterial({ color: Colors.progress.outline })
     );
     this.outline.position.z = 0;
 
@@ -750,8 +774,11 @@ class ProgressView {
     this.background.position.z = 0.01;
     this.context.scene.add(this.background);
 
-    // Colors: remaining nats, scored nats, hover nats
-    this.fill = [0x447744, 0xb37e1d, 0xdddddd].map(
+    this.fill = [
+      Colors.progress.remaining,
+      Colors.progress.scored,
+      Colors.progress.hover,
+    ].map(
       (color) =>
         new THREE.Mesh(
           new THREE.PlaneGeometry(1, 1),
@@ -843,8 +870,8 @@ class ProgressView {
 
 function itemFreqHtml(freq: W.Frequency): string {
   const text = freq.charAt(0).toUpperCase() + freq.slice(1);
-  const color = Colors.item_outline[freq].toString(16).padStart(6, "0");
-  return `<span style="color: #${color}; font-weight: bold;">(${text})</span>`;
+  const color = Colors.item_outline[freq].getHexString();
+  return `<span style="color: ${color}; font-weight: bold;">(${text})</span>`;
 }
 
 function itemButton(
@@ -894,7 +921,7 @@ class DynamicRowsView {
   ) {
     this.background = new THREE.Mesh(
       new THREE.PlaneGeometry(1, 1),
-      new THREE.MeshBasicMaterial({ color: 0x2b2b2b })
+      new THREE.MeshBasicMaterial({ color: Colors.menu_background })
     );
     this.background.position.z = 0.01;
     scene.add(this.background);
