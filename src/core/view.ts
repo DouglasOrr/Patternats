@@ -32,45 +32,84 @@ const LOG = new Logger();
 function _c(s: string): THREE.Color {
   return new THREE.Color(s);
 }
+
+// Original dark theme
+// const Colors = {
+//   background: _c("#222222"),
+//   foreground: _c("#ffffff"),
+//   outline: _c("#888888"),
+//   menu_background: _c("#2b2b2b"),
+//   pip_fill: _c("#b37e1d"),
+//   tip: {
+//     background: _c("#000000"),
+//     foreground: _c("#ffffff"),
+//   },
+//   grid: {
+//     hover: _c("#aaaaaa"),
+//     src: _c("#447744"),
+//     caret: _c("#99aa99"),
+//     o: _c("#999999"),
+//     xw: _c("#dddddd"),
+//     highlight: _c("#eeeeee"),
+//     pattern: _c("#ffdd55"),
+//   },
+//   button: {
+//     hovered: _c("#ffffff"),
+//     enabled: _c("#aaaaaa"),
+//     disabled: _c("#555555"),
+//   },
+//   item_outline: {
+//     common: _c("#888888"),
+//     uncommon: _c("#1d2fb7"),
+//     rare: _c("#b12121"),
+//   },
+//   progress: {
+//     outline: _c("#181818"),
+//     remaining: _c("#447744"),
+//     scored: _c("#b37e1d"),
+//     hover: _c("#dddddd"),
+//   },
+// };
+// New light theme
 const Colors = {
-  foreground: _c("#ffffff"),
+  background: _c("#e0e0e0"),
+  menu_background: _c("#d4d4d4"),
+  foreground: _c("#000000"),
   outline: _c("#888888"),
-  tip_background: _c("#000000"),
-  menu_background: _c("#2b2b2b"),
-  pip_fill: _c("#b37e1d"),
+  pip_fill: _c("#cf7220"),
+  tip: {
+    background: _c("#f0f0f0"),
+    foreground: _c("#222222"),
+  },
   grid: {
-    hover: _c("#aaaaaa"),
-    src: _c("#447744"),
-    caret: _c("#99aa99"),
-    o: _c("#999999"),
-    xw: _c("#dddddd"),
-    highlight: _c("#eeeeee"),
-    pattern: _c("#ffdd55"),
+    hover: _c("#333333"),
+    src: _c("#cf7220"),
+    caret: _c("#cf7220"),
+    o: _c("#dddddd"),
+    xw: _c("#a8a8a8"),
+    highlight: _c("#333333"),
+    pattern: _c("#e60000"),
   },
   button: {
-    hovered: _c("#ffffff"),
-    enabled: _c("#aaaaaa"),
-    disabled: _c("#555555"),
+    hovered: _c("#000000"),
+    enabled: _c("#4c4c4c"),
+    disabled: _c("#aaaaaa"),
   },
   item_outline: {
     common: _c("#888888"),
-    uncommon: _c("#1d2fb7"),
-    rare: _c("#b12121"),
+    uncommon: _c("#2137dc"),
+    rare: _c("#e60000"),
   },
   progress: {
-    outline: _c("#181818"),
-    remaining: _c("#447744"),
-    scored: _c("#b37e1d"),
-    hover: _c("#dddddd"),
+    outline: _c("#d0d0d0"),
+    remaining: _c("#444444"),
+    scored: _c("#cf7220"),
+    hover: _c("#e60000"),
   },
 };
 
 type CBox = { cx: number; cy: number; w: number; h: number };
 type Box = { left: number; right: number; bottom: number; top: number };
-
-function backgroundColor(): THREE.Color {
-  return new THREE.Color(getComputedStyle(document.body).backgroundColor);
-}
 
 function worldToScreen(
   canvas: HTMLCanvasElement,
@@ -134,12 +173,11 @@ class Tooltip {
     private readonly mouse: Mouse,
     private readonly canvas: HTMLCanvasElement
   ) {
-    console.log(Colors.tip_background.getHexString());
     this.element = document.createElement("div");
     this.element.style.position = "absolute";
     this.element.style.padding = "6px 8px";
-    this.element.style.background = `#${Colors.tip_background.getHexString()}cc`;
-    this.element.style.color = "white";
+    this.element.style.background = Colors.tip.background.getStyle();
+    this.element.style.color = Colors.tip.foreground.getStyle();
     this.element.style.fontFamily = "sans-serif";
     this.element.style.fontSize = "12px";
     this.element.style.borderRadius = "4px";
@@ -769,7 +807,7 @@ class ProgressView {
     this.context.scene.add(this.outline);
     this.background = new THREE.Mesh(
       new THREE.PlaneGeometry(1, 1),
-      new THREE.MeshBasicMaterial({ color: backgroundColor().getHex() })
+      new THREE.MeshBasicMaterial({ color: Colors.background })
     );
     this.background.position.z = 0.01;
     this.context.scene.add(this.background);
@@ -870,7 +908,7 @@ class ProgressView {
 
 function itemFreqHtml(freq: W.Frequency): string {
   const text = freq.charAt(0).toUpperCase() + freq.slice(1);
-  const color = Colors.item_outline[freq].getHexString();
+  const color = Colors.item_outline[freq].getStyle();
   return `<span style="color: ${color}; font-weight: bold;">(${text})</span>`;
 }
 
@@ -1217,7 +1255,7 @@ class WaveScene implements Scene {
     readonly wave: W.Wave,
     readonly context: ViewContext
   ) {
-    context.scene.background = backgroundColor();
+    context.scene.background = Colors.background;
     this.menu = new MenuView(run, context);
     this.progressView = new ProgressView(wave, context);
     this.panelView = new PanelView(wave, context);
@@ -1260,7 +1298,7 @@ class SelectScene implements Scene {
     readonly select: R.Select,
     readonly context: ViewContext
   ) {
-    context.scene.background = backgroundColor();
+    context.scene.background = Colors.background;
     this.menu = new MenuView(run, context);
     this.offers = new SelectOffersView(select, context);
     this.inventory = new SelectInventoryView(select, context);
@@ -1290,14 +1328,14 @@ class RunOutcomeScene implements Scene {
   readonly element: HTMLElement;
 
   constructor(readonly outcome: R.RunOutcome, readonly context: ViewContext) {
-    context.scene.background = backgroundColor();
+    context.scene.background = Colors.background;
     this.element = document.createElement("div");
     this.element.innerText = outcome.result === "win" ? "Victory!" : "Defeat";
     this.element.style.position = "absolute";
     this.element.style.left = "50%";
     this.element.style.top = "50%";
     this.element.style.transform = "translate(-50%, -50%)";
-    this.element.style.color = "white";
+    this.element.style.color = Colors.tip.foreground.getStyle();
     this.element.style.fontSize = "72px";
     this.element.style.userSelect = "none";
     document.body.appendChild(this.element);

@@ -1,6 +1,5 @@
 import * as R from "./core/run";
 import * as V from "./core/view";
-import { Items } from "./core/items";
 
 window.onload = () => {
   const run = new R.Run(

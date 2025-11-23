@@ -2,7 +2,8 @@ html,
 body {
   height: 100%;
   margin: 0;
-  background-color: #222222;
+  /* sync with View.Colors.background */
+  background-color: #d4d4d4;
   font-family: sans-serif;
 }
 #canvas-main {
