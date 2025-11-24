@@ -1,4 +1,5 @@
 import { Frequency, Grid, Item, Score, Cell } from "./wave";
+import * as W from "./wave";
 
 export const Items = {} as { [name: string]: Item };
 
@@ -219,6 +220,39 @@ function ppoints_flat(points: number, freq: Frequency): void {
 ppoints_flat(3, "common");
 ppoints_flat(7, "uncommon");
 ppoints_flat(12, "rare");
+
+bonus(
+  ["pmult_symmetric", "uncommon", 1],
+  ["Symmetry", "add 50% pattern multiplier, per reflective symmetry"],
+  {
+    onScore(score: Score): void {
+      for (const component of score.components) {
+        for (const match of component.matches) {
+          const symmetries = W.countReflectiveSymmetries(match.pattern.grid);
+          match.points += match.points * 0.5 * symmetries;
+        }
+      }
+    },
+  }
+);
+
+bonus(
+  ["pmult_asymmetric", "uncommon", 1],
+  [
+    "Asymmetry",
+    "add 100% multiplier to patterns with no reflective symmetries",
+  ],
+  {
+    onScore(score: Score): void {
+      for (const component of score.components) {
+        for (const match of component.matches) {
+          const symmetries = W.countReflectiveSymmetries(match.pattern.grid);
+          match.points += match.points * 1.0 * +(symmetries === 0);
+        }
+      }
+    },
+  }
+);
 
 // Bonuses::Global
 

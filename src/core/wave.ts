@@ -150,6 +150,24 @@ export class Grid {
   }
 }
 
+export function countReflectiveSymmetries(grid: Grid): number {
+  let count = 0;
+  const check = (transform: (r: number, c: number) => [number, number]) => {
+    for (let r = 0; r < grid.rows; r++) {
+      for (let c = 0; c < grid.cols; c++) {
+        const [r2, c2] = transform(r, c);
+        if (grid.get(r, c) !== grid.get(r2, c2)) {
+          return;
+        }
+      }
+    }
+    count++;
+  };
+  check((r, c) => [r, grid.cols - 1 - c]); // flip x
+  check((r, c) => [grid.rows - 1 - r, c]); // flip y
+  return count;
+}
+
 // Items
 
 export type Frequency = "common" | "uncommon" | "rare";

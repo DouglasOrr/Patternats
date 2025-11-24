@@ -23,6 +23,13 @@ test("Grid getComponents", () => {
   ]);
 });
 
+test("countReflectiveSymmetries", () => {
+  expect(G.countReflectiveSymmetries(G.Grid.parse("xx/xx"))).toBe(2);
+  expect(G.countReflectiveSymmetries(G.Grid.parse("xx/x-"))).toBe(0);
+  expect(G.countReflectiveSymmetries(G.Grid.parse("xxx/x-x"))).toBe(1);
+  expect(G.countReflectiveSymmetries(G.Grid.parse("-x/-x/-x"))).toBe(1);
+});
+
 test("Pattern find", () => {
   const grid = G.Grid.parse("xxx-/-x-x/x-x-");
   const pattern = {

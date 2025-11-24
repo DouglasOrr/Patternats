@@ -17,10 +17,11 @@ window.onload = () => {
         "flip_y",
         // Patterns
         "square_s",
-        "line",
+        "rhode_island_z",
+        "t",
         // Bonuses
-        "gmult_pattern",
-        "ppoints_flat_common",
+        "pmult_symmetric",
+        "pmult_asymmetric",
       ],
       skipToFirstWave: true,
     })
