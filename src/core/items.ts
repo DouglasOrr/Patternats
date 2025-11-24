@@ -245,12 +245,24 @@ bonus(
   ["gmult_group_all", "rare", 1],
   [
     "Group Discount (+)",
-    "for each and every group, add a global 5% multiplier",
+    "for each and every group, add a global 4% multiplier",
   ],
   {
     onScore(score: Score): void {
-      score.flatMultiplier += 0.05 * score.components.length;
+      score.flatMultiplier += 0.04 * score.components.length;
     },
     icon: `bonus/gmult_group.png`,
+  }
+);
+
+bonus(
+  ["gmult_pattern", "rare", 1],
+  ["Pattern Discount", "for each pattern, add a global 3% multiplier"],
+  {
+    onScore(score: Score): void {
+      score.flatMultiplier +=
+        0.03 * score.components.reduce((c, n) => c + n.matches.length, 0);
+    },
+    icon: `bonus/gmult_pattern.png`,
   }
 );

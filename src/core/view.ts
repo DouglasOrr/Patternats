@@ -108,6 +108,14 @@ const Colors = {
   },
 };
 
+function fmt_number(n: number): string {
+  const s = n.toString();
+  if (s.length <= 3) {
+    return s;
+  }
+  return n.toFixed(2);
+}
+
 type CBox = { cx: number; cy: number; w: number; h: number };
 type Box = { left: number; right: number; bottom: number; top: number };
 
@@ -887,12 +895,14 @@ class ProgressView {
           const explanation = component.scoreExplanation
             .map(
               (e) =>
-                `−${e.points} ×${e.count}&nbsp;&nbsp;<em>${
-                  e.pattern?.title ?? ""
-                }</em>`
+                `−${fmt_number(e.points)} ×${e.count}&nbsp;&nbsp;` +
+                `<em>${e.pattern?.title ?? ""}</em>`
             )
             .join("<br>&nbsp;&nbsp;&nbsp;&nbsp;");
-          return `− ${component.score} nnats<br>&nbsp;= ${explanation}`;
+          return (
+            `− ${fmt_number(component.score)} nnats` +
+            `<br>&nbsp;= ${explanation}`
+          );
         },
         [
           bounds.right,
@@ -902,17 +912,23 @@ class ProgressView {
     } else {
       this.context.tooltip.show(this, { cx, cy, w, h }, () => {
         const sep = "<br>&nbsp;&nbsp;&nbsp;";
-        let text = `${progressAll} nnats<br>− ${this.wave.score.total} nnats`;
+        let text = `${fmt_number(progressAll)} nnats<br>− ${fmt_number(
+          this.wave.score.total
+        )} nnats`;
         text += `<br>&nbsp;= `;
         const explanation = this.wave.score.explanation;
         if (explanation.multiplier !== 1) {
-          text += `${explanation.multiplier}×&nbsp;&nbsp;<em>bonus</em>${sep}`;
+          text +=
+            `${fmt_number(explanation.multiplier)}×` +
+            `&nbsp;&nbsp;<em>bonus</em>${sep}`;
         }
         for (const e of explanation.components) {
-          text += `−${e}&nbsp;&nbsp;<em>group</em>${sep}`;
+          text += `−${fmt_number(e)}` + `&nbsp;&nbsp;<em>group</em>${sep}`;
         }
         if (explanation.addPoints) {
-          text += `−${explanation.addPoints}&nbsp;&nbsp;<em>bonus</em>`;
+          text +=
+            `−${fmt_number(explanation.addPoints)}` +
+            `&nbsp;&nbsp;<em>bonus</em>`;
         }
         if (text.endsWith(sep)) {
           text = text.slice(0, -sep.length);
