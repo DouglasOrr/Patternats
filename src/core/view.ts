@@ -32,45 +32,6 @@ const LOG = new Logger();
 function _c(s: string): THREE.Color {
   return new THREE.Color(s);
 }
-
-// Original dark theme
-// const Colors = {
-//   background: _c("#222222"),
-//   foreground: _c("#ffffff"),
-//   outline: _c("#888888"),
-//   menu_background: _c("#2b2b2b"),
-//   pip_fill: _c("#b37e1d"),
-//   tip: {
-//     background: _c("#000000"),
-//     foreground: _c("#ffffff"),
-//   },
-//   grid: {
-//     hover: _c("#aaaaaa"),
-//     src: _c("#447744"),
-//     caret: _c("#99aa99"),
-//     o: _c("#999999"),
-//     xw: _c("#dddddd"),
-//     highlight: _c("#eeeeee"),
-//     pattern: _c("#ffdd55"),
-//   },
-//   button: {
-//     hovered: _c("#ffffff"),
-//     enabled: _c("#aaaaaa"),
-//     disabled: _c("#555555"),
-//   },
-//   item_outline: {
-//     common: _c("#888888"),
-//     uncommon: _c("#1d2fb7"),
-//     rare: _c("#b12121"),
-//   },
-//   progress: {
-//     outline: _c("#181818"),
-//     remaining: _c("#447744"),
-//     scored: _c("#b37e1d"),
-//     hover: _c("#dddddd"),
-//   },
-// };
-// New light theme
 const Colors = {
   background: _c("#e0e0e0"),
   menu_background: _c("#d4d4d4"),
@@ -116,8 +77,21 @@ function fmt_number(n: number): string {
   return n.toFixed(2);
 }
 
-type CBox = { cx: number; cy: number; w: number; h: number };
-type Box = { left: number; right: number; bottom: number; top: number };
+type Box = { cx: number; cy: number; w: number; h: number };
+
+function boxFromBounds(
+  left: number,
+  right: number,
+  bottom: number,
+  top: number
+): Box {
+  return {
+    cx: (left + right) / 2,
+    cy: (bottom + top) / 2,
+    w: right - left,
+    h: top - bottom,
+  };
+}
 
 function worldToScreen(
   canvas: HTMLCanvasElement,
@@ -201,7 +175,7 @@ class Tooltip {
 
   show(
     tag: any,
-    when: boolean | CBox,
+    when: boolean | Box,
     content?: () => string,
     position?: [number, number]
   ): void {
@@ -564,27 +538,27 @@ class MenuView {
     const PipHeightRatio = 0.5;
     const PipMaxAspect = 1.5;
 
-    const cx = (bounds.left + bounds.right) / 2;
-    const cy = (bounds.bottom + bounds.top) / 2;
-    const w = bounds.right - bounds.left;
-    const h = bounds.top - bounds.bottom;
-    this.background.position.set(cx, cy, this.background.position.z);
-    this.background.scale.set(w, h, 1);
+    this.background.position.set(
+      bounds.cx,
+      bounds.cy,
+      this.background.position.z
+    );
+    this.background.scale.set(bounds.w, bounds.h, 1);
 
-    const inset = InsetRatio * Math.min(w, h);
-    const pipsH = PipHeightRatio * (h - 2 * inset);
+    const inset = InsetRatio * Math.min(bounds.w, bounds.h);
+    const pipsH = PipHeightRatio * (bounds.h - 2 * inset);
     const pipsW = Math.min(
       PipMaxAspect * pipsH * this.progress.total,
-      w - 2 * inset
+      bounds.w - 2 * inset
     );
-    const pipsX = bounds.left + inset + pipsW / 2;
-    this.progress.update(pipsX, cy, pipsW, pipsH);
+    const pipsX = bounds.cx - bounds.w / 2 + inset + pipsW / 2;
+    this.progress.update(pipsX, bounds.cy, pipsW, pipsH);
 
     this.context.tooltip.show(
       this,
       {
         cx: pipsX,
-        cy: cy,
+        cy: bounds.cy,
         w: pipsW,
         h: pipsH,
       },
@@ -636,13 +610,13 @@ class GridView {
 
     const grid = this.wave.grid;
     const cellSize = Math.min(
-      (bounds.right - bounds.left) / (grid.cols + 2),
-      (bounds.top - bounds.bottom) / (grid.rows + 2)
+      bounds.w / (grid.cols + 2),
+      bounds.h / (grid.rows + 2)
     );
     const outlineSize = cellSize * (1 - 2 * OutlinePad);
     const markSize = MarkSizeRatio * cellSize;
-    const cellsLeft = bounds.left + cellSize;
-    const cellsTop = bounds.top - cellSize;
+    const cellsLeft = bounds.cx - bounds.w / 2 + cellSize;
+    const cellsTop = bounds.cy + bounds.h / 2 - cellSize;
 
     // Mouse hover & click
     let hoverIndices = new Set<number>();
@@ -777,8 +751,8 @@ class GridView {
       this.carets.update(
         caretIndex++,
         /*pos*/ [
-          bounds.left + (col + 1.5) * cellSize,
-          bounds.bottom + (row + 1.5) * cellSize,
+          bounds.cx - bounds.w / 2 + (col + 1.5) * cellSize,
+          bounds.cy - bounds.h / 2 + (row + 1.5) * cellSize,
         ],
         /*scale*/ [markSize, 0.5 * markSize],
         /*rot*/ rot,
@@ -844,17 +818,17 @@ class ProgressView {
 
   update(bounds: Box): void {
     // Basic layout
-    const w = bounds.right - bounds.left;
-    const h = 1 * (bounds.top - bounds.bottom);
-    const inset = 0.2 * Math.min(w, h);
-    const innerW = w - 2 * inset;
-    const innerH = h - 2 * inset;
-    const cx = (bounds.left + bounds.right) / 2;
-    const cy = (bounds.bottom + bounds.top) / 2;
+    const inset = 0.2 * Math.min(bounds.w, bounds.h);
+    const innerW = bounds.w - 2 * inset;
+    const innerH = bounds.h - 2 * inset;
 
-    this.outline.position.set(cx, cy, this.outline.position.z);
-    this.outline.scale.set(w, h, 1);
-    this.background.position.set(cx, cy, this.background.position.z);
+    this.outline.position.set(bounds.cx, bounds.cy, this.outline.position.z);
+    this.outline.scale.set(bounds.w, bounds.h, 1);
+    this.background.position.set(
+      bounds.cx,
+      bounds.cy,
+      this.background.position.z
+    );
     this.background.scale.set(innerW, innerH, 1);
 
     // Progress
@@ -877,8 +851,8 @@ class ProgressView {
     for (const [i, progress] of [progress0, progress1, progress2].entries()) {
       const h = (innerH * progress) / this.wave.s.targetScore;
       this.fill[i].position.set(
-        cx,
-        cy - innerH / 2 + y + h / 2,
+        bounds.cx,
+        bounds.cy - innerH / 2 + y + h / 2,
         this.fill[i].position.z
       );
       this.fill[i].scale.set(innerW, h, 1);
@@ -915,12 +889,12 @@ class ProgressView {
           );
         },
         [
-          bounds.right,
-          cy + innerH * (progressAll / this.wave.s.targetScore - 1 / 2),
+          bounds.cx + bounds.w / 2,
+          bounds.cy + innerH * (progressAll / this.wave.s.targetScore - 1 / 2),
         ]
       );
     } else {
-      this.context.tooltip.show(this, { cx, cy, w, h }, () => {
+      this.context.tooltip.show(this, bounds, () => {
         const sep = "<br>&nbsp;&nbsp;&nbsp;";
         let text = `${fmt_number(progressAll)} nnats<br>− ${fmt_number(
           this.wave.score.total
@@ -1019,24 +993,24 @@ class DynamicRowsView {
       rowsCount += (r.height ?? 1) * Math.ceil(r.components.length / this.cols);
       padCount += +(r.padBelow ?? j < this.rows.length - 1);
     }
-    const cx = (bounds.left + bounds.right) / 2;
-    const cy = (bounds.bottom + bounds.top) / 2;
-    const w = bounds.right - bounds.left;
-    const h = bounds.top - bounds.bottom;
-    const inset = InsetRatio * Math.min(w, h);
-    const sectionPad = SectionPadRatio * Math.min(w, h);
+    const inset = InsetRatio * Math.min(bounds.w, bounds.h);
+    const sectionPad = SectionPadRatio * Math.min(bounds.w, bounds.h);
     const size = Math.min(
-      (w - 2 * inset) / this.cols,
-      (h - 2 * inset - padCount * sectionPad) / rowsCount
+      (bounds.w - 2 * inset) / this.cols,
+      (bounds.h - 2 * inset - padCount * sectionPad) / rowsCount
     );
 
     // Background
-    this.background.position.set(cx, cy, this.background.position.z);
-    this.background.scale.set(w, h, 1);
+    this.background.position.set(
+      bounds.cx,
+      bounds.cy,
+      this.background.position.z
+    );
+    this.background.scale.set(bounds.w, bounds.h, 1);
 
     // Rows
-    const x0 = bounds.left + inset + size / 2;
-    let y = bounds.top - inset;
+    const x0 = bounds.cx - bounds.w / 2 + inset + size / 2;
+    let y = bounds.cy + bounds.h / 2 - inset;
     for (const [j, row] of this.rows.entries()) {
       const cHeight = (row.height ?? 1) * size;
       y -= cHeight / 2;
@@ -1220,12 +1194,12 @@ class SelectOffersView {
   update(bounds: Box): void {
     const OfferSizeRatio = 0.8;
 
-    const width = (bounds.right - bounds.left) / this.items.length;
+    const width = bounds.w / this.items.length;
     const size = width * OfferSizeRatio;
     this.items.forEach((button, index) => {
       button.update(
-        bounds.left + width * (index + 0.5),
-        (bounds.top + bounds.bottom) / 2,
+        bounds.cx - bounds.w / 2 + width * (index + 0.5),
+        bounds.cy,
         size,
         size
       );
@@ -1252,30 +1226,25 @@ function topLevelLayout(context: ViewContext): {
   const bodyY = context.camera.bottom + pad + bodyH / 2 - gridSize / 2;
   const x0 = context.camera.left + pad;
   return {
-    menu: {
-      left: x0,
-      right: context.camera.right - pad,
-      bottom: context.camera.top - pad - menuH,
-      top: context.camera.top - pad,
-    },
-    main: {
-      left: x0,
-      right: x0 + gridSize,
-      bottom: bodyY,
-      top: bodyY + gridSize,
-    },
-    progress: {
-      left: x0 + gridSize + pad,
-      right: x0 + gridSize + pad + progressW,
-      bottom: bodyY,
-      top: bodyY + gridSize,
-    },
-    panel: {
-      left: x0 + gridSize + pad + progressW + pad,
-      right: x0 + gridSize + pad + progressW + pad + panelW,
-      bottom: bodyY,
-      top: bodyY + gridSize,
-    },
+    menu: boxFromBounds(
+      x0,
+      context.camera.right - pad,
+      context.camera.top - pad - menuH,
+      context.camera.top - pad
+    ),
+    main: boxFromBounds(x0, x0 + gridSize, bodyY, bodyY + gridSize),
+    progress: boxFromBounds(
+      x0 + gridSize + pad,
+      x0 + gridSize + pad + progressW,
+      bodyY,
+      bodyY + gridSize
+    ),
+    panel: boxFromBounds(
+      x0 + gridSize + pad + progressW + pad,
+      x0 + gridSize + pad + progressW + pad + panelW,
+      bodyY,
+      bodyY + gridSize
+    ),
   };
 }
 
