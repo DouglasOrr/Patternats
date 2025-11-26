@@ -11,19 +11,10 @@ window.onload = () => {
         // Actions
         "swap",
         "swap",
-        "wildcard",
-        "shift",
-        "gravity",
-        "flip_y",
         // Patterns
-        "square_s",
-        "rhode_island_z",
-        "t",
         // Bonuses
-        "pmult_symmetric",
-        "pmult_asymmetric",
       ],
-      skipToFirstWave: true,
+      // skipToFirstWave: true,
     })
   );
   V.start(run);

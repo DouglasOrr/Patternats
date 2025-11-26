@@ -41,7 +41,9 @@ export class Select {
         // can't find enough candidates, return what we have
         return new Select(items, offers);
       }
-      const weights = candidates.map((item) => chance[item.freq]);
+      const weights = candidates.map(
+        (item) => chance[item.freq] * item.freqMultiplier
+      );
       offers.push(sampleWeighted(candidates, weights));
     }
     return new Select(items, offers);

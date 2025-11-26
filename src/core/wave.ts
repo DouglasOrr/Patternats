@@ -176,6 +176,7 @@ export interface ItemBase {
   name: string;
   title: string;
   freq: Frequency;
+  freqMultiplier: number;
   priority: number;
   limit: number;
 }
@@ -197,7 +198,7 @@ export interface Bonus extends ItemBase {
   kind: "bonus";
   description: string;
   icon: string;
-  onScore?(score: Score): void;
+  onScore?(score: Score, grid: Grid): void;
 }
 
 export type Item = Action | Pattern | Bonus;
@@ -229,6 +230,9 @@ export function findMatches(pattern: Pattern, grid: Grid): number[] {
 }
 
 export class ComponentScore {
+  multiplier: number = 1;
+  cellPoints: number = 1;
+  alwaysScoring: boolean = false;
   readonly matches: {
     pattern: Pattern;
     patternIndex: number;
@@ -251,49 +255,50 @@ export class ComponentScore {
     for (const p of this.matches) {
       total += p.points;
     }
-    if (this.matches.length >= 1) {
-      total += this.cellIndices.length;
+    if (this.matches.length >= 1 || this.alwaysScoring) {
+      total += this.cellIndices.length * this.cellPoints;
     }
-    return total;
+    return Math.ceil(this.multiplier * total);
   }
 
   get scoreExplanation(): {
-    pattern: Pattern | null;
-    points: number;
-    count: number;
-  }[] {
-    const explanation: {
+    multiplier: number;
+    matches: {
+      pattern: Pattern | null;
+      points: number;
+      count: number;
+    }[];
+  } {
+    const matches: {
       pattern: Pattern | null;
       points: number;
       count: number;
     }[] = [];
     for (const p of this.matches) {
-      const existing = explanation.find(
-        (e) => e.pattern?.name === p.pattern.name
-      );
+      const existing = matches.find((e) => e.pattern?.name === p.pattern.name);
       if (existing) {
         existing.count++;
       } else {
-        explanation.push({
+        matches.push({
           pattern: p.pattern,
           points: p.points,
           count: 1,
         });
       }
     }
-    explanation.sort((a, b) => b.count * b.points - a.count * a.points);
-    explanation.push({
+    matches.sort((a, b) => b.count * b.points - a.count * a.points);
+    matches.push({
       pattern: null,
-      points: 1,
+      points: this.cellPoints,
       count: this.cellIndices.length,
     });
-    return explanation;
+    return { matches, multiplier: this.multiplier };
   }
 }
 
 export class Score {
   flatPoints: number = 0;
-  flatMultiplier: number = 0;
+  multiplier: number = 1;
   constructor(
     readonly components: ComponentScore[],
     readonly cellToComponent: (number | null)[]
@@ -301,7 +306,7 @@ export class Score {
 
   get total(): number {
     return Math.ceil(
-      (1 + this.flatMultiplier) *
+      this.multiplier *
         (this.components.reduce((sum, comp) => sum + comp.score, 0) +
           this.flatPoints)
     );
@@ -313,7 +318,7 @@ export class Score {
     addPoints: number;
   } {
     return {
-      multiplier: 1 + this.flatMultiplier,
+      multiplier: this.multiplier,
       components: this.components
         .map((c) => c.score)
         .filter((score) => score > 0)
@@ -388,7 +393,7 @@ export class Wave {
     const score = Score.create(grid, this.s.patterns);
     for (const bonus of this.s.bonuses) {
       if (bonus.onScore) {
-        bonus.onScore(score);
+        bonus.onScore(score, grid);
       }
     }
     this.state.push({ grid, score, action });

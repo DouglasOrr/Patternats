@@ -892,16 +892,26 @@ class ProgressView {
         this,
         component.score > 0,
         () => {
-          const explanation = component.scoreExplanation
+          const explanation = component.scoreExplanation;
+          const sep = "<br>&nbsp;&nbsp;&nbsp;&nbsp;";
+          let text = "";
+          if (explanation.multiplier !== 1) {
+            text +=
+              `${fmt_number(explanation.multiplier)}×` +
+              `&nbsp;&nbsp;<em>bonus</em>${sep}`;
+          }
+          text += explanation.matches
             .map(
               (e) =>
                 `−${fmt_number(e.points)} ×${e.count}&nbsp;&nbsp;` +
-                `<em>${e.pattern?.title ?? ""}</em>`
+                `<em>${e.pattern?.title ?? ""}</em>${sep}`
             )
-            .join("<br>&nbsp;&nbsp;&nbsp;&nbsp;");
+            .join("");
+          if (text.endsWith(sep)) {
+            text = text.slice(0, -sep.length);
+          }
           return (
-            `− ${fmt_number(component.score)} nnats` +
-            `<br>&nbsp;= ${explanation}`
+            `− ${fmt_number(component.score)} nnats` + `<br>&nbsp;= ${text}`
           );
         },
         [
