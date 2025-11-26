@@ -1,7 +1,9 @@
 import * as R from "./core/run";
 import * as V from "./core/view";
+import * as S from "./core/sound";
 
 window.onload = () => {
+  new S.Player().play();
   const run = new R.Run(
     R.standardSettings({
       waves: 20,
