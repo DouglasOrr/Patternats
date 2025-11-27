@@ -9,7 +9,16 @@ const TRACKS = [
   "audio_hero_Urban-Delivery_SIPML_C-0810.mp3",
 ];
 
-export class Player {
+export function start() {
+  const player = new Player();
+  function onClick() {
+    player.play();
+    document.removeEventListener("click", onClick);
+  }
+  document.addEventListener("click", onClick);
+}
+
+class Player {
   private audio: HTMLAudioElement;
   private index = 0;
   private tracks: string[];

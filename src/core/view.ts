@@ -1,10 +1,11 @@
 import * as THREE from "three";
 import * as R from "./run";
+import * as G from "./game";
 import * as W from "./wave";
 
-export function start(run: R.Run): void {
+export function start(settings: G.GameSettings): void {
   new Renderer(
-    run,
+    settings,
     document.getElementById("canvas-main") as HTMLCanvasElement
   );
 }
@@ -1266,9 +1267,11 @@ function topLevelLayout(context: ViewContext): {
   };
 }
 
+export type Menu = "main_menu" | "new_run" | "achievements" | "settings" | null;
+
 interface Scene {
   readonly context: ViewContext;
-  phase(): W.Wave | R.Select | R.RunOutcome;
+  navigate(): Menu;
   finished(): boolean;
   update(): void;
   dispose(): void;
@@ -1281,7 +1284,7 @@ class WaveScene implements Scene {
   private readonly panelView: PanelView;
 
   constructor(
-    run: R.Run,
+    private readonly run: R.Run,
     readonly wave: W.Wave,
     readonly context: ViewContext
   ) {
@@ -1297,8 +1300,12 @@ class WaveScene implements Scene {
     );
   }
 
-  phase(): W.Wave {
-    return this.wave;
+  navigate(): Menu {
+    return null;
+  }
+
+  nextRunPhase(): W.Wave | R.Select | R.RunOutcome {
+    return this.run.next(this.wave);
   }
 
   finished(): boolean {
@@ -1324,7 +1331,7 @@ class SelectScene implements Scene {
   private readonly inventory: SelectInventoryView;
 
   constructor(
-    run: R.Run,
+    private readonly run: R.Run,
     readonly select: R.Select,
     readonly context: ViewContext
   ) {
@@ -1334,8 +1341,12 @@ class SelectScene implements Scene {
     this.inventory = new SelectInventoryView(select, context);
   }
 
-  phase(): R.Select {
-    return this.select;
+  navigate(): Menu {
+    return null;
+  }
+
+  nextRunPhase(): W.Wave | R.Select | R.RunOutcome {
+    return this.run.next(this.select);
   }
 
   finished(): boolean {
@@ -1354,29 +1365,200 @@ class SelectScene implements Scene {
   }
 }
 
+class MainMenuScene implements Scene {
+  private destination: Menu = null;
+  private readonly buttons: Button[] = [];
+
+  constructor(readonly context: ViewContext) {
+    context.scene.background = Colors.background;
+
+    const addButton = (texture: string, tip: string, dest: Menu) => {
+      this.buttons.push(
+        new Button(
+          loadTexture(texture),
+          Colors.foreground,
+          tip,
+          context,
+          () => {
+            this.destination = dest;
+          }
+        )
+      );
+    };
+    addButton("img/menu/new_run.png", "New Run", "new_run");
+    addButton("img/menu/trophy.png", "Achievements", "achievements");
+    addButton("img/menu/settings.png", "Settings", "settings");
+  }
+
+  navigate(): Menu {
+    return this.destination;
+  }
+
+  finished(): boolean {
+    return this.destination !== null;
+  }
+
+  update(): void {
+    const w = this.context.camera.right - this.context.camera.left;
+    const h = this.context.camera.top - this.context.camera.bottom;
+    const buttonSize = Math.min(w * 0.15, h * 0.2);
+    const spacing = buttonSize * 1.5;
+    const totalWidth = spacing * (this.buttons.length - 1);
+    const startX = w / 2 - totalWidth / 2;
+    const centerY = h / 2;
+
+    for (let i = 0; i < this.buttons.length; i++) {
+      this.buttons[i].update(
+        startX + i * spacing,
+        centerY,
+        buttonSize,
+        buttonSize
+      );
+    }
+  }
+
+  dispose(): void {
+    disposeScene(this.context.scene);
+  }
+}
+
+class AchievementsScene implements Scene {
+  private destination: Menu = null;
+  private readonly element: HTMLElement;
+  private readonly backButton: Button;
+
+  constructor(readonly context: ViewContext) {
+    context.scene.background = Colors.background;
+
+    this.element = document.createElement("div");
+    this.element.innerText = "Achievements";
+    this.element.style.position = "absolute";
+    this.element.style.left = "50%";
+    this.element.style.top = "40%";
+    this.element.style.transform = "translate(-50%, -50%)";
+    this.element.style.color = Colors.tip.foreground.getStyle();
+    this.element.style.fontSize = "48px";
+    this.element.style.userSelect = "none";
+    document.body.appendChild(this.element);
+
+    this.backButton = new Button(
+      loadTexture("img/menu/back.png"),
+      Colors.foreground,
+      "Back",
+      context,
+      () => {
+        this.destination = "main_menu";
+      }
+    );
+  }
+
+  navigate(): Menu {
+    return this.destination;
+  }
+
+  finished(): boolean {
+    return this.destination !== null;
+  }
+
+  update(): void {
+    const w = this.context.camera.right - this.context.camera.left;
+    const h = this.context.camera.top - this.context.camera.bottom;
+    const buttonSize = Math.min(w * 0.1, h * 0.12);
+    const margin = buttonSize * 0.8;
+    this.backButton.update(margin, h - margin, buttonSize, buttonSize);
+  }
+
+  dispose(): void {
+    document.body.removeChild(this.element);
+    disposeScene(this.context.scene);
+  }
+}
+
+class SettingsScene implements Scene {
+  private destination: Menu = null;
+  private readonly element: HTMLElement;
+  private readonly backButton: Button;
+
+  constructor(readonly context: ViewContext) {
+    context.scene.background = Colors.background;
+
+    this.element = document.createElement("div");
+    this.element.innerText = "Settings";
+    this.element.style.position = "absolute";
+    this.element.style.left = "50%";
+    this.element.style.top = "40%";
+    this.element.style.transform = "translate(-50%, -50%)";
+    this.element.style.color = Colors.tip.foreground.getStyle();
+    this.element.style.fontSize = "48px";
+    this.element.style.userSelect = "none";
+    document.body.appendChild(this.element);
+
+    this.backButton = new Button(
+      loadTexture("img/menu/back.png"),
+      Colors.foreground,
+      "Back",
+      context,
+      () => {
+        this.destination = "main_menu";
+      }
+    );
+  }
+
+  navigate(): Menu {
+    return this.destination;
+  }
+
+  finished(): boolean {
+    return this.destination !== null;
+  }
+
+  update(): void {
+    const w = this.context.camera.right - this.context.camera.left;
+    const h = this.context.camera.top - this.context.camera.bottom;
+    const buttonSize = Math.min(w * 0.1, h * 0.12);
+    const margin = buttonSize * 0.8;
+    this.backButton.update(margin, h - margin, buttonSize, buttonSize);
+  }
+
+  dispose(): void {
+    document.body.removeChild(this.element);
+    disposeScene(this.context.scene);
+  }
+}
+
 class RunOutcomeScene implements Scene {
   readonly element: HTMLElement;
+  private clickedContinue: boolean = false;
 
   constructor(readonly outcome: R.RunOutcome, readonly context: ViewContext) {
     context.scene.background = Colors.background;
     this.element = document.createElement("div");
-    this.element.innerText = outcome.result === "win" ? "Victory!" : "Defeat";
+    this.element.innerHTML = `
+      <div style="font-size: 72px; margin-bottom: 20px;">${
+        outcome.result === "win" ? "Victory!" : "Defeat"
+      }</div>
+      <div style="font-size: 24px; cursor: pointer; opacity: 0.7;">Click to continue</div>
+    `;
     this.element.style.position = "absolute";
     this.element.style.left = "50%";
     this.element.style.top = "50%";
     this.element.style.transform = "translate(-50%, -50%)";
     this.element.style.color = Colors.tip.foreground.getStyle();
-    this.element.style.fontSize = "72px";
+    this.element.style.textAlign = "center";
     this.element.style.userSelect = "none";
     document.body.appendChild(this.element);
+
+    this.element.addEventListener("click", () => {
+      this.clickedContinue = true;
+    });
   }
 
-  phase(): R.RunOutcome {
-    return this.outcome;
+  navigate(): Menu {
+    return "main_menu";
   }
 
   finished(): boolean {
-    return false;
+    return this.clickedContinue;
   }
 
   update(): void {}
@@ -1398,8 +1580,12 @@ class Renderer {
   // State
   private lastTime: number | null = null;
   private scene: Scene | null = null;
+  private run: R.Run | null = null;
 
-  constructor(private readonly run: R.Run, canvas: HTMLCanvasElement) {
+  constructor(
+    private readonly settings: G.GameSettings,
+    canvas: HTMLCanvasElement
+  ) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
     this.camera = new THREE.OrthographicCamera();
     this.camera.near = 0.1;
@@ -1420,21 +1606,58 @@ class Renderer {
       this.scene.dispose();
       this.tooltip.hide();
     }
-    const nextPhase = this.run.next(this.scene?.phase());
     const context = {
       mouse: this.mouse,
       tooltip: this.tooltip,
       scene: new THREE.Scene(),
       camera: this.camera,
     };
-    if (nextPhase.phase === "wave") {
-      this.scene = new WaveScene(this.run, nextPhase, context);
-    } else if (nextPhase.phase === "select") {
-      this.scene = new SelectScene(this.run, nextPhase, context);
-    } else if (nextPhase.phase === "outcome") {
-      this.scene = new RunOutcomeScene(nextPhase, context);
+    const destination =
+      this.scene === null ? "main_menu" : this.scene.navigate();
+    switch (destination) {
+      case "main_menu":
+        this.run = null;
+        this.scene = new MainMenuScene(context);
+        break;
+
+      case "new_run":
+        this.run = new R.Run(this.settings.run);
+        this.setRunPhase(this.run.next(), context);
+        break;
+
+      case "achievements":
+        this.scene = new AchievementsScene(context);
+        break;
+
+      case "settings":
+        this.scene = new SettingsScene(context);
+        break;
+
+      case null:
+        // Continue within run (WaveScene or SelectScene finished)
+        this.setRunPhase(
+          (this.scene as WaveScene | SelectScene).nextRunPhase(),
+          context
+        );
+        break;
+    }
+  }
+
+  private setRunPhase(
+    phase: W.Wave | R.Select | R.RunOutcome,
+    context: ViewContext
+  ) {
+    if (this.run === null) {
+      throw new Error("Run is null during game phase");
+    }
+    if (phase.phase === "wave") {
+      this.scene = new WaveScene(this.run, phase, context);
+    } else if (phase.phase === "select") {
+      this.scene = new SelectScene(this.run, phase, context);
+    } else if (phase.phase === "outcome") {
+      this.scene = new RunOutcomeScene(phase, context);
     } else {
-      throw new Error(`Unknown phase: ${nextPhase}`);
+      throw new Error(`Unknown phase: ${phase}`);
     }
   }
 

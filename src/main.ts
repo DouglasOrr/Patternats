@@ -1,16 +1,14 @@
+import * as G from "./core/game";
 import * as R from "./core/run";
-import * as V from "./core/view";
 import * as S from "./core/sound";
+import * as V from "./core/view";
 
 window.onload = () => {
-  const player = new S.Player();
-  function onClick() {
-    player.play();
-    document.removeEventListener("click", onClick);
-  }
-  document.addEventListener("click", onClick);
-  const run = new R.Run(
-    R.standardSettings({
+  S.start();
+
+  const settings: G.GameSettings = {
+    skipTo: null,
+    run: R.standardSettings({
       waves: 20,
       start: { common: 4, uncommon: 2, rare: 1 },
       end: { common: 1, uncommon: 2, rare: 2 },
@@ -22,7 +20,7 @@ window.onload = () => {
         // Bonuses
       ],
       // skipToFirstWave: true,
-    })
-  );
-  V.start(run);
+    }),
+  };
+  V.start(settings);
 };
