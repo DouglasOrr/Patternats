@@ -39,10 +39,6 @@ const Colors = {
   foreground: _c("#000000"),
   outline: _c("#888888"),
   pip_fill: _c("#cf7220"),
-  tip: {
-    background: _c("#f0f0f0"),
-    foreground: _c("#222222"),
-  },
   grid: {
     hover: _c("#333333"),
     src: _c("#cf7220"),
@@ -157,14 +153,7 @@ class Tooltip {
     private readonly canvas: HTMLCanvasElement
   ) {
     this.element = document.createElement("div");
-    this.element.style.position = "absolute";
-    this.element.style.padding = "6px 8px";
-    this.element.style.background = Colors.tip.background.getStyle();
-    this.element.style.color = Colors.tip.foreground.getStyle();
-    this.element.style.fontFamily = "sans-serif";
-    this.element.style.fontSize = "12px";
-    this.element.style.borderRadius = "4px";
-    this.element.style.pointerEvents = "none";
+    this.element.classList.add("tooltip");
     this.element.style.display = "none"; // hidden by default
     document.body.appendChild(this.element);
   }
@@ -180,6 +169,7 @@ class Tooltip {
     content?: () => string,
     position?: [number, number]
   ): void {
+    const rightMarginPx = 100;
     const [mouseX, mouseY] = this.mouse.position;
     const shown =
       when === true
@@ -202,6 +192,8 @@ class Tooltip {
         tipX += offset;
         tipY += offset;
       }
+      const bounds = this.element.getBoundingClientRect();
+      tipX = Math.min(tipX, bounds.right - rightMarginPx);
       this.element.style.left = `${tipX}px`;
       this.element.style.top = `${tipY}px`;
       this.elementTag = tag;
@@ -1604,7 +1596,6 @@ class SettingsScene implements Scene {
     this.element.style.left = "50%";
     this.element.style.top = "40%";
     this.element.style.transform = "translate(-50%, -50%)";
-    this.element.style.color = Colors.tip.foreground.getStyle();
     this.element.style.fontSize = "48px";
     this.element.style.userSelect = "none";
     document.body.appendChild(this.element);
@@ -1649,19 +1640,12 @@ class RunOutcomeScene implements Scene {
   constructor(readonly outcome: R.RunOutcome, readonly context: ViewContext) {
     context.scene.background = Colors.background;
     this.element = document.createElement("div");
+    const outcomeText = outcome.result === "win" ? "Victory!" : "Defeat";
     this.element.innerHTML = `
-      <div style="font-size: 72px; margin-bottom: 20px;">${
-        outcome.result === "win" ? "Victory!" : "Defeat"
-      }</div>
-      <div style="font-size: 24px; cursor: pointer; opacity: 0.7;">Click to continue</div>
+      <h1>${outcomeText}</h1>
+      <button>Click to continue</button>
     `;
-    this.element.style.position = "absolute";
-    this.element.style.left = "50%";
-    this.element.style.top = "50%";
-    this.element.style.transform = "translate(-50%, -50%)";
-    this.element.style.color = Colors.tip.foreground.getStyle();
-    this.element.style.textAlign = "center";
-    this.element.style.userSelect = "none";
+    this.element.classList.add("screen");
     document.body.appendChild(this.element);
 
     this.element.addEventListener("click", () => {
