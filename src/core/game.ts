@@ -27,6 +27,7 @@ class RunStats {
 
 class PlayerStats {
   // Lifetime stats
+  runsStarted: number = 0;
   runsWon: number = 0;
   runsLost: number = 0;
   wavesCompleted: number = 0;
@@ -267,6 +268,7 @@ class AchievementTrackerImpl {
 
   onRunStart(): void {
     this.runStats = new RunStats();
+    this.playerStats.runsStarted++;
   }
 
   onRunEnd(outcome: R.RunOutcome): void {

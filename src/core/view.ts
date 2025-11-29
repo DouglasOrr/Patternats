@@ -536,6 +536,8 @@ class Pips implements Component {
 class MenuView {
   private readonly background: THREE.Mesh;
   private readonly progress: Pips;
+  private readonly homeButton: Button;
+  onHome: (() => void) | null = null;
 
   constructor(
     private readonly run: R.Run,
@@ -548,6 +550,15 @@ class MenuView {
     this.background.position.z = 0;
     context.scene.add(this.background);
     this.progress = new Pips(this.run.totalWaves(), context.scene);
+    this.homeButton = new Button(
+      loadTexture("img/menu/home.png"),
+      Colors.foreground,
+      "Abandon run and return to home screen",
+      context,
+      () => {
+        if (this.onHome) this.onHome();
+      }
+    );
   }
 
   update(bounds: Box): void {
@@ -565,10 +576,14 @@ class MenuView {
     this.background.scale.set(bounds.w, bounds.h, 1);
 
     const inset = InsetRatio * Math.min(bounds.w, bounds.h);
+    const buttonSize = bounds.h - 2 * inset;
+    const buttonX = bounds.cx + bounds.w / 2 - inset - buttonSize / 2;
+    this.homeButton.update(buttonX, bounds.cy, buttonSize, buttonSize);
+
     const pipsH = PipHeightRatio * (bounds.h - 2 * inset);
     const pipsW = Math.min(
       PipMaxAspect * pipsH * this.progress.total,
-      bounds.w - 2 * inset
+      bounds.w - 3 * inset - buttonSize
     );
     const pipsX = bounds.cx - bounds.w / 2 + inset + pipsW / 2;
     this.progress.update(pipsX, bounds.cy, pipsW, pipsH);
@@ -1282,6 +1297,7 @@ class WaveScene implements Scene {
   private readonly gridView: GridView;
   private readonly progressView: ProgressView;
   private readonly panelView: PanelView;
+  private navigateTo: Menu = null;
 
   constructor(
     private readonly run: R.Run,
@@ -1290,6 +1306,9 @@ class WaveScene implements Scene {
   ) {
     context.scene.background = Colors.background;
     this.menu = new MenuView(run, context);
+    this.menu.onHome = () => {
+      this.navigateTo = "main_menu";
+    };
     this.progressView = new ProgressView(wave, context);
     this.panelView = new PanelView(wave, context);
     this.gridView = new GridView(
@@ -1301,7 +1320,7 @@ class WaveScene implements Scene {
   }
 
   navigate(): Menu {
-    return null;
+    return this.navigateTo;
   }
 
   nextRunPhase(): W.Wave | R.Select | R.RunOutcome {
@@ -1309,7 +1328,7 @@ class WaveScene implements Scene {
   }
 
   finished(): boolean {
-    return this.wave.status !== "playing";
+    return this.wave.status !== "playing" || this.navigateTo !== null;
   }
 
   update(): void {
@@ -1329,6 +1348,7 @@ class SelectScene implements Scene {
   private readonly menu: MenuView;
   private readonly offers: SelectOffersView;
   private readonly inventory: SelectInventoryView;
+  private navigateTo: Menu = null;
 
   constructor(
     private readonly run: R.Run,
@@ -1337,12 +1357,15 @@ class SelectScene implements Scene {
   ) {
     context.scene.background = Colors.background;
     this.menu = new MenuView(run, context);
+    this.menu.onHome = () => {
+      this.navigateTo = "main_menu";
+    };
     this.offers = new SelectOffersView(select, context);
     this.inventory = new SelectInventoryView(select, context);
   }
 
   navigate(): Menu {
-    return null;
+    return this.navigateTo;
   }
 
   nextRunPhase(): W.Wave | R.Select | R.RunOutcome {
@@ -1350,7 +1373,7 @@ class SelectScene implements Scene {
   }
 
   finished(): boolean {
-    return this.select.selected !== null;
+    return this.select.selected !== null || this.navigateTo !== null;
   }
 
   update(): void {
@@ -1527,16 +1550,16 @@ class AchievementsScene implements Scene {
   private buildStatsElement(element: HTMLElement): void {
     element.innerHTML = "";
     const stats = G.AchievementTracker.stats();
+    const runsAbandoned = stats.runsStarted - stats.runsWon - stats.runsLost;
     const achievements = G.AchievementTracker.list();
     const unlockedCount = achievements.filter((a) => a.unlock !== null).length;
 
-    const lines = [
-      `Runs: ${stats.runsWon}W / ${stats.runsLost}L  |  Waves: ${stats.wavesCompleted}`,
+    for (const line of [
+      `Runs: ${stats.runsWon}W / ${stats.runsLost}L / ${runsAbandoned}A` +
+        `  |  Waves: ${stats.wavesCompleted}`,
       `Total: ${stats.totalScore} nnats  |  Best: ${stats.highestGridScore} nnats`,
       `Achievements: ${unlockedCount}/${achievements.length}`,
-    ];
-
-    for (const line of lines) {
+    ]) {
       const div = document.createElement("pre");
       div.textContent = line;
       element.appendChild(div);
