@@ -108,6 +108,10 @@ input[type="checkbox"] {
   pointer-events: auto;
 }
 
+.screen-center {
+  justify-content: center;
+}
+
 /* Achievements */
 
 #achievements-stats {

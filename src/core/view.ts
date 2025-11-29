@@ -1678,7 +1678,7 @@ class RunOutcomeScene implements Scene {
       <h1>${outcomeText}</h1>
       <button>Click to continue</button>
     `;
-    this.element.classList.add("screen");
+    this.element.classList.add("screen", "screen-center");
     document.body.appendChild(this.element);
 
     this.element.addEventListener("click", () => {
