@@ -1,19 +1,19 @@
 import * as G from "./core/game";
 import { Items } from "./core/items";
 import * as R from "./core/run";
-import * as S from "./core/sound";
+import "./core/sound";
 import * as V from "./core/view";
 import "./static/style.css";
 
 window.onload = () => {
   // G.AchievementTracker.reset();
   G.registerItems(Items);
-  S.start();
 
   const settings: G.GameSettings = {
-    // skipTo: null,
-    skipTo: "run",
+    skipTo: null,
+    // skipTo: "new_run",
     // skipTo: "achievements",
+    // skipTo: "settings",
     run: R.standardSettings({
       waves: 20,
       start: { common: 4, uncommon: 2, rare: 1 },
@@ -22,11 +22,6 @@ window.onload = () => {
         // Actions
         "swap",
         "swap",
-        // "wildcard",
-        // "gravity",
-        // "shift",
-        // "flip_y",
-
         // Patterns
         // Bonuses
       ],

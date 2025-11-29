@@ -9,16 +9,9 @@ const TRACKS = [
   "audio_hero_Urban-Delivery_SIPML_C-0810.mp3",
 ];
 
-export function start() {
-  const player = new Player();
-  function onClick() {
-    player.play();
-    document.removeEventListener("click", onClick);
-  }
-  document.addEventListener("click", onClick);
-}
+const ENABLED_KEY = "music_enabled";
 
-class Player {
+class PlayerImpl {
   private audio: HTMLAudioElement;
   private index = 0;
   private tracks: string[];
@@ -28,14 +21,30 @@ class Player {
     this.audio.onended = () => this.next();
     this.audio.volume = 0.5;
     this.tracks = TRACKS.slice();
-    // shuffle
+    this.shuffle();
+    // wait for interaction
+    const player = this;
+    function onClick() {
+      player.loadAndPlay();
+      document.removeEventListener("click", onClick);
+    }
+    document.addEventListener("click", onClick);
+  }
+
+  shuffle(): void {
     for (let i = this.tracks.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [this.tracks[i], this.tracks[j]] = [this.tracks[j], this.tracks[i]];
     }
   }
 
-  play() {
+  get enabled(): boolean {
+    const s = localStorage.getItem(ENABLED_KEY);
+    return s === null ? true : s === "true";
+  }
+
+  set enabled(value: boolean) {
+    localStorage.setItem(ENABLED_KEY, value.toString());
     this.loadAndPlay();
   }
 
@@ -45,7 +54,13 @@ class Player {
   }
 
   private loadAndPlay() {
-    this.audio.src = `music/${this.tracks[this.index]}`;
-    this.audio.play().catch((e) => console.warn("Audio playback failed", e));
+    if (this.enabled) {
+      this.audio.src = `music/${this.tracks[this.index]}`;
+      this.audio.play().catch((e) => console.warn("Audio playback failed", e));
+    } else {
+      this.audio.pause();
+    }
   }
 }
+
+export const Player = new PlayerImpl();

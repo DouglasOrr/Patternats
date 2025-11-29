@@ -2,6 +2,7 @@ import * as THREE from "three";
 import * as R from "./run";
 import * as G from "./game";
 import * as W from "./wave";
+import * as S from "./sound";
 
 export function start(settings: G.GameSettings): void {
   new Renderer(
@@ -1276,11 +1277,9 @@ function topLevelLayout(context: ViewContext): {
   };
 }
 
-export type Menu = "main_menu" | "new_run" | "achievements" | "settings" | null;
-
 interface Scene {
   readonly context: ViewContext;
-  navigate(): Menu;
+  navigate(): G.Menu;
   finished(): boolean;
   update(): void;
   dispose(): void;
@@ -1291,7 +1290,7 @@ class WaveScene implements Scene {
   private readonly gridView: GridView;
   private readonly progressView: ProgressView;
   private readonly panelView: PanelView;
-  private navigateTo: Menu = null;
+  private navigateTo: G.Menu = null;
 
   constructor(
     private readonly run: R.Run,
@@ -1313,7 +1312,7 @@ class WaveScene implements Scene {
     );
   }
 
-  navigate(): Menu {
+  navigate(): G.Menu {
     return this.navigateTo;
   }
 
@@ -1342,7 +1341,7 @@ class SelectScene implements Scene {
   private readonly menu: MenuView;
   private readonly offers: SelectOffersView;
   private readonly inventory: SelectInventoryView;
-  private navigateTo: Menu = null;
+  private navigateTo: G.Menu = null;
 
   constructor(
     private readonly run: R.Run,
@@ -1358,7 +1357,7 @@ class SelectScene implements Scene {
     this.inventory = new SelectInventoryView(select, context);
   }
 
-  navigate(): Menu {
+  navigate(): G.Menu {
     return this.navigateTo;
   }
 
@@ -1383,13 +1382,13 @@ class SelectScene implements Scene {
 }
 
 class MainMenuScene implements Scene {
-  private destination: Menu = null;
+  private destination: G.Menu = null;
   private readonly buttons: Button[] = [];
 
   constructor(readonly context: ViewContext) {
     context.scene.background = Colors.background;
 
-    const addButton = (texture: string, tip: string, dest: Menu) => {
+    const addButton = (texture: string, tip: string, dest: G.Menu) => {
       this.buttons.push(
         new Button(
           loadTexture(texture),
@@ -1407,7 +1406,7 @@ class MainMenuScene implements Scene {
     addButton("img/menu/settings.png", "Settings", "settings");
   }
 
-  navigate(): Menu {
+  navigate(): G.Menu {
     return this.destination;
   }
 
@@ -1440,7 +1439,7 @@ class MainMenuScene implements Scene {
 }
 
 class AchievementsScene implements Scene {
-  private destination: Menu = null;
+  private destination: G.Menu = null;
   private readonly element: HTMLElement;
   private readonly backButton: Button;
 
@@ -1455,7 +1454,6 @@ class AchievementsScene implements Scene {
       <div id="achievements-stats"></div>
       <div id="achievements-list"></div>
     `;
-    this.element.style.position = "absolute";
     document.body.appendChild(this.element);
 
     // Stats
@@ -1560,7 +1558,7 @@ class AchievementsScene implements Scene {
     }
   }
 
-  navigate(): Menu {
+  navigate(): G.Menu {
     return this.destination;
   }
 
@@ -1583,7 +1581,7 @@ class AchievementsScene implements Scene {
 }
 
 class SettingsScene implements Scene {
-  private destination: Menu = null;
+  private destination: G.Menu = null;
   private readonly element: HTMLElement;
   private readonly backButton: Button;
 
@@ -1591,13 +1589,18 @@ class SettingsScene implements Scene {
     context.scene.background = Colors.background;
 
     this.element = document.createElement("div");
-    this.element.innerText = "Settings";
-    this.element.style.position = "absolute";
-    this.element.style.left = "50%";
-    this.element.style.top = "40%";
-    this.element.style.transform = "translate(-50%, -50%)";
-    this.element.style.fontSize = "48px";
-    this.element.style.userSelect = "none";
+    this.element.classList.add("screen");
+    this.element.innerHTML = `
+      <h1>Settings</h1>
+      <div id="settings-options"></div>
+      <div id="settings-credits"></div>
+    `;
+    this.buildOptionsElement(
+      this.element.querySelector("#settings-options") as HTMLElement
+    );
+    this.buildCreditsElement(
+      this.element.querySelector("#settings-credits") as HTMLElement
+    );
     document.body.appendChild(this.element);
 
     this.backButton = new Button(
@@ -1611,7 +1614,37 @@ class SettingsScene implements Scene {
     );
   }
 
-  navigate(): Menu {
+  private buildOptionsElement(element: HTMLElement): void {
+    element.innerHTML = `
+      <label for="music-toggle">Music</label>
+      <input type="checkbox" id="music-toggle" ${
+        S.Player.enabled ? "checked" : ""
+      }>
+    `;
+    const musicToggle = element.querySelector(
+      "#music-toggle"
+    ) as HTMLInputElement;
+    musicToggle.addEventListener("change", () => {
+      S.Player.shuffle();
+      S.Player.enabled = musicToggle.checked;
+    });
+  }
+
+  private buildCreditsElement(element: HTMLElement): void {
+    element.innerHTML = `
+      <h2>Credits</h2>
+      <div class="settings-credits-list">
+        <p><b>Music and sound effects</b> from
+          <a href="https://www.zapsplat.com" target="_blank">Zapsplat.com</a>
+        </p>
+        <p><b>Graphics</b> using
+          <a href="https://threejs.org/" target="_blank">three.js</a>
+        </p>
+      </div>
+    `;
+  }
+
+  navigate(): G.Menu {
     return this.destination;
   }
 
@@ -1653,7 +1686,7 @@ class RunOutcomeScene implements Scene {
     });
   }
 
-  navigate(): Menu {
+  navigate(): G.Menu {
     return "main_menu";
   }
 
@@ -1753,20 +1786,12 @@ class Renderer {
     };
   }
 
-  private nextDestination(): Menu | null {
+  private nextDestination(): G.Menu {
     if (this.scene) {
       return this.scene.navigate();
     }
     // First scene
-    const skipTo = this.settings.skipTo;
-    if (skipTo === "run") {
-      return "new_run";
-    } else if (skipTo === "achievements") {
-      return "achievements";
-    } else if (skipTo === "settings") {
-      return "settings";
-    }
-    return "main_menu";
+    return this.settings.skipTo || "main_menu";
   }
 
   private nextScene() {

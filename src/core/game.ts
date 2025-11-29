@@ -1,8 +1,10 @@
 import type * as R from "./run";
 import type * as W from "./wave";
 
+export type Menu = "main_menu" | "new_run" | "achievements" | "settings" | null;
+
 export interface GameSettings {
-  skipTo: "run" | "achievements" | "settings" | null;
+  skipTo: Menu;
   run: R.RunSettings;
 }
 
