@@ -1435,11 +1435,19 @@ class AchievementsScene implements Scene {
     this.element.innerHTML = `
       <h1>Achievements</h1>
       <button id="achievements-reset">Reset<br>(triple-click)</button>
+      <div id="achievements-stats"></div>
       <div id="achievements-list"></div>
     `;
     this.element.style.position = "absolute";
     document.body.appendChild(this.element);
 
+    // Stats
+    const statsElement = this.element.querySelector(
+      "#achievements-stats"
+    ) as HTMLElement;
+    this.buildStatsElement(statsElement);
+
+    // Achievements
     const listElement = this.element.querySelector(
       "#achievements-list"
     ) as HTMLElement;
@@ -1459,6 +1467,7 @@ class AchievementsScene implements Scene {
       if (clickCount >= 3) {
         clickCount = 0;
         G.AchievementTracker.reset();
+        this.buildStatsElement(statsElement);
         this.buildAchievementList(listElement);
       } else {
         clickTimer = window.setTimeout(() => {
@@ -1497,8 +1506,8 @@ class AchievementsScene implements Scene {
     return div;
   }
 
-  private buildAchievementList(listElement: HTMLElement): void {
-    listElement.innerHTML = "";
+  private buildAchievementList(element: HTMLElement): void {
+    element.innerHTML = "";
     const achievements = G.AchievementTracker.list();
     achievements.sort((a, b) => {
       const aUnlocked = a.unlock !== null;
@@ -1511,7 +1520,26 @@ class AchievementsScene implements Scene {
       return a.achievement.priority! - b.achievement.priority!;
     });
     for (const a of achievements) {
-      listElement.appendChild(AchievementsScene.createAchievementElement(a));
+      element.appendChild(AchievementsScene.createAchievementElement(a));
+    }
+  }
+
+  private buildStatsElement(element: HTMLElement): void {
+    element.innerHTML = "";
+    const stats = G.AchievementTracker.stats();
+    const achievements = G.AchievementTracker.list();
+    const unlockedCount = achievements.filter((a) => a.unlock !== null).length;
+
+    const lines = [
+      `Runs: ${stats.runsWon}W / ${stats.runsLost}L  |  Waves: ${stats.wavesCompleted}`,
+      `Total: ${stats.totalScore} nnats  |  Best: ${stats.highestGridScore} nnats`,
+      `Achievements: ${unlockedCount}/${achievements.length}`,
+    ];
+
+    for (const line of lines) {
+      const div = document.createElement("pre");
+      div.textContent = line;
+      element.appendChild(div);
     }
   }
 

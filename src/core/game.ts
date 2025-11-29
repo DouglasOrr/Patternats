@@ -330,6 +330,10 @@ class AchievementTrackerImpl {
 
   // Query
 
+  stats(): PlayerStats {
+    return this.playerStats;
+  }
+
   list(): AchievementState[] {
     const result: AchievementState[] = [];
     for (const achievement of Object.values(Achievements)) {

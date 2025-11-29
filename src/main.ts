@@ -3,6 +3,7 @@ import { Items } from "./core/items";
 import * as R from "./core/run";
 import * as S from "./core/sound";
 import * as V from "./core/view";
+import "./static/style.css";
 
 window.onload = () => {
   // G.AchievementTracker.reset();
@@ -10,6 +11,7 @@ window.onload = () => {
   S.start();
 
   const settings: G.GameSettings = {
+    // skipTo: null,
     skipTo: "run",
     // skipTo: "achievements",
     run: R.standardSettings({
