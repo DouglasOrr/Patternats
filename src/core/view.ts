@@ -1431,25 +1431,86 @@ class AchievementsScene implements Scene {
     context.scene.background = Colors.background;
 
     this.element = document.createElement("div");
-    this.element.innerText = "Achievements";
+    this.element.classList.add("screen");
+    this.element.innerHTML = `
+      <h1>Achievements</h1>
+      <button id="achievements-reset">Reset<br>(triple-click)</button>
+      <div id="achievements-list"></div>
+    `;
     this.element.style.position = "absolute";
-    this.element.style.left = "50%";
-    this.element.style.top = "40%";
-    this.element.style.transform = "translate(-50%, -50%)";
-    this.element.style.color = Colors.tip.foreground.getStyle();
-    this.element.style.fontSize = "48px";
-    this.element.style.userSelect = "none";
     document.body.appendChild(this.element);
+
+    const listElement = this.element.querySelector(
+      "#achievements-list"
+    ) as HTMLElement;
+    this.buildAchievementList(listElement);
+
+    // Triple-click reset button
+    const resetButton = this.element.querySelector(
+      "#achievements-reset"
+    ) as HTMLButtonElement;
+    let clickCount = 0;
+    let clickTimer: number | null = null;
+    resetButton.addEventListener("click", () => {
+      clickCount++;
+      if (clickTimer !== null) {
+        clearTimeout(clickTimer);
+      }
+      if (clickCount >= 3) {
+        clickCount = 0;
+        G.AchievementTracker.reset();
+        this.buildAchievementList(listElement);
+      } else {
+        clickTimer = window.setTimeout(() => {
+          clickCount = 0;
+          clickTimer = null;
+        }, 500);
+      }
+    });
 
     this.backButton = new Button(
       loadTexture("img/menu/back.png"),
       Colors.foreground,
-      "Back",
+      /*tipText*/ null,
       context,
       () => {
         this.destination = "main_menu";
       }
     );
+  }
+
+  private buildAchievementList(listElement: HTMLElement): void {
+    listElement.innerHTML = "";
+    const achievements = G.AchievementTracker.list();
+    achievements.sort((a, b) => {
+      const aUnlocked = a.unlock !== null;
+      const bUnlocked = b.unlock !== null;
+      if (aUnlocked && !bUnlocked) return -1;
+      if (!aUnlocked && bUnlocked) return 1;
+      if (aUnlocked && bUnlocked) {
+        return b.unlock! - a.unlock!;
+      }
+      return a.achievement.priority! - b.achievement.priority!;
+    });
+    for (const a of achievements) {
+      const aElement = document.createElement("div");
+      aElement.classList.add("achievement");
+      aElement.innerHTML = `
+        <img src="img/menu/trophy.png" class="achievement-icon" />
+        <b>${a.achievement.title}</b><span>${a.achievement.description}</span>
+      `;
+      aElement.style.display = "flex";
+      aElement.style.alignItems = "center";
+      const aIcon = aElement.querySelector(
+        ".achievement-icon"
+      ) as HTMLImageElement;
+      aIcon.style.filter = a.unlock ? "brightness(0)" : "brightness(0.5)";
+      if (a.unlock) {
+        const unlockDate = new Date(a.unlock);
+        aElement.title = `Unlocked ${unlockDate.toDateString()} ${unlockDate.toLocaleTimeString()}`;
+      }
+      listElement.appendChild(aElement);
+    }
   }
 
   navigate(): Menu {
@@ -1496,7 +1557,7 @@ class SettingsScene implements Scene {
     this.backButton = new Button(
       loadTexture("img/menu/back.png"),
       Colors.foreground,
-      "Back",
+      /*tipText*/ null,
       context,
       () => {
         this.destination = "main_menu";
@@ -1605,6 +1666,22 @@ class Renderer {
     };
   }
 
+  private nextDestination(): Menu | null {
+    if (this.scene) {
+      return this.scene.navigate();
+    }
+    // First scene
+    const skipTo = this.settings.skipTo;
+    if (skipTo === "run") {
+      return "new_run";
+    } else if (skipTo === "achievements") {
+      return "achievements";
+    } else if (skipTo === "settings") {
+      return "settings";
+    }
+    return "main_menu";
+  }
+
   private nextScene() {
     if (this.scene) {
       this.scene.dispose();
@@ -1616,9 +1693,7 @@ class Renderer {
       scene: new THREE.Scene(),
       camera: this.camera,
     };
-    const destination =
-      this.scene === null ? "main_menu" : this.scene.navigate();
-    switch (destination) {
+    switch (this.nextDestination()) {
       case "main_menu":
         this.run = null;
         this.scene = new MainMenuScene(context);

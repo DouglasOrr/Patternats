@@ -2,7 +2,7 @@ import type * as R from "./run";
 import type * as W from "./wave";
 
 export interface GameSettings {
-  skipTo: "run" | "wave" | null;
+  skipTo: "run" | "achievements" | "settings" | null;
   run: R.RunSettings;
 }
 
@@ -17,6 +17,7 @@ export interface Achievement {
   check(player: PlayerStats, run: RunStats | null): boolean;
   checkOnGridScored?(wave: W.Wave, score: W.Score): boolean;
   progress?(player: PlayerStats): number; // 0-1 for progressive achievements
+  priority?: number;
 }
 
 class RunStats {
@@ -65,117 +66,124 @@ function totalPatterns(): number {
 
 // Achievement Definitions
 
-const Achievements: Achievement[] = [
-  // Progression
-  {
-    name: "first_wave",
-    title: "First Steps",
-    description: "Complete your first wave",
-    check: (_, run) => run !== null && run.wavesCompleted >= 1,
-  },
-  {
-    name: "first_win",
-    title: "Nat-ural",
-    description: "Win your first run",
-    check: (player) => player.runsWon >= 1,
-  },
-  {
-    name: "waves_10",
-    title: "Wave Rider",
-    description: "Complete 10 waves total",
-    check: (player) => player.wavesCompleted >= 10,
-    progress: (player) => Math.min(1, player.wavesCompleted / 10),
-  },
-  {
-    name: "waves_50",
-    title: "Seasoned",
-    description: "Complete 50 waves total",
-    check: (player) => player.wavesCompleted >= 50,
-    progress: (player) => Math.min(1, player.wavesCompleted / 50),
-  },
-  {
-    name: "wins_5",
-    title: "Champion",
-    description: "Win 5 runs",
-    check: (player) => player.runsWon >= 5,
-    progress: (player) => Math.min(1, player.runsWon / 5),
-  },
+export const Achievements: Record<string, Achievement> = {};
 
-  // Score
-  {
-    name: "score_500",
-    title: "High Scorer",
-    description: "Subtract 500+ nnats with a single grid",
-    check: (player) => player.highestGridScore >= 500,
-  },
-  {
-    name: "score_1000",
-    title: "Master Scorer",
-    description: "Subtract 1000+ nnats with a single grid",
-    check: (player) => player.highestGridScore >= 1000,
-  },
-  {
-    name: "run_score_10000",
-    title: "Prolific",
-    description: "Subtract 10000+ nnats total in a single run",
-    check: (player) => player.highestRunScore >= 10000,
-  },
+let nextPriority = 0;
+function register(achievement: Achievement) {
+  achievement.priority = nextPriority++;
+  Achievements[achievement.name] = achievement;
+}
+register({
+  name: "first_wave",
+  title: "First Steps",
+  description: "Complete your first wave",
+  check: (_, run) => run !== null && run.wavesCompleted >= 1,
+});
+register({
+  name: "first_win",
+  title: "Nat-ural",
+  description: "Win your first run",
+  check: (player) => player.runsWon >= 1,
+});
+register({
+  name: "waves_10",
+  title: "Wave Rider",
+  description: "Complete 10 waves total",
+  check: (player) => player.wavesCompleted >= 10,
+  progress: (player) => Math.min(1, player.wavesCompleted / 10),
+});
+register({
+  name: "waves_50",
+  title: "Seasoned",
+  description: "Complete 50 waves total",
+  check: (player) => player.wavesCompleted >= 50,
+  progress: (player) => Math.min(1, player.wavesCompleted / 50),
+});
+register({
+  name: "wins_5",
+  title: "Champion",
+  description: "Win 5 runs",
+  check: (player) => player.runsWon >= 5,
+  progress: (player) => Math.min(1, player.runsWon / 5),
+});
 
-  // Items
-  {
-    name: "collect_rare",
-    title: "Rare Collector",
-    description: "Collect 10 rare items",
-    check: (player) => player.countItemsOfFreq("rare") >= 10,
-    progress: (player) => Math.min(1, player.countItemsOfFreq("rare") / 10),
-  },
-  {
-    name: "collect_all",
-    title: "Catch 'em All",
-    description: "Collect all items",
-    check: (player) => player.countItems() >= Object.keys(Items).length,
-    progress: (player) =>
-      Math.min(1, player.countItems() / Object.keys(Items).length),
-  },
-  {
-    name: "match_all",
-    title: "Match 'em All",
-    description: "Match every pattern at least once",
-    check: (player) => player.countMatchedPatterns() >= totalPatterns(),
-    progress: (player) =>
-      Math.min(1, player.countMatchedPatterns() / totalPatterns()),
-  },
+// Score
+register({
+  name: "score_500",
+  title: "High Scorer",
+  description: "Subtract 500+ nnats with a single grid",
+  check: (player) => player.highestGridScore >= 500,
+});
+register({
+  name: "score_1000",
+  title: "Master Scorer",
+  description: "Subtract 1000+ nnats with a single grid",
+  check: (player) => player.highestGridScore >= 1000,
+});
+register({
+  name: "run_score_10000",
+  title: "Prolific",
+  description: "Subtract 10000+ nnats total in a single run",
+  check: (player) => player.highestRunScore >= 10000,
+});
 
-  // Special
-  {
-    name: "one_group",
-    title: "One Group to Rule Them All",
-    description: "Score a grid with only one group",
-    check: () => false,
-    checkOnGridScored: (_, score) => score.components.length === 1,
-  },
-  {
-    name: "match_3",
-    title: "Triple Threat",
-    description: "Match 3 patterns with a single grid",
-    check: () => false,
-    checkOnGridScored: (_, score) => {
-      for (const component of score.components) {
-        if (component.matches.length >= 3) {
-          return true;
-        }
+// Items
+register({
+  name: "collect_rare",
+  title: "Rare Collector",
+  description: "Collect 10 rare items",
+  check: (player) => player.countItemsOfFreq("rare") >= 10,
+  progress: (player) => Math.min(1, player.countItemsOfFreq("rare") / 10),
+});
+register({
+  name: "collect_all",
+  title: "Catch 'em All",
+  description: "Collect all items",
+  check: (player) => player.countItems() >= Object.keys(Items).length,
+  progress: (player) =>
+    Math.min(1, player.countItems() / Object.keys(Items).length),
+});
+register({
+  name: "match_all",
+  title: "Match 'em All",
+  description: "Match every pattern at least once",
+  check: (player) => player.countMatchedPatterns() >= totalPatterns(),
+  progress: (player) =>
+    Math.min(1, player.countMatchedPatterns() / totalPatterns()),
+});
+
+// Special
+register({
+  name: "one_group",
+  title: "One Group to Rule Them All",
+  description: "Score a grid with only one group",
+  check: () => false,
+  checkOnGridScored: (_, score) => score.components.length === 1,
+});
+register({
+  name: "match_3",
+  title: "Triple Threat",
+  description: "Match 3 different patterns with a single grid",
+  check: () => false,
+  checkOnGridScored: (_, score) => {
+    for (const component of score.components) {
+      const uniquePatterns = new Set(
+        component.matches.map((match) => match.pattern.name)
+      );
+      if (uniquePatterns.size >= 3) {
+        return true;
       }
-      return false;
-    },
+    }
+    return false;
   },
-  {
-    name: "perfect_20",
-    title: "Perfectionist",
-    description: "Win 20 waves with grids to spare",
-    check: (player) => player.wavesWithFramesRemaining >= 20,
-    progress: (player) => Math.min(1, player.wavesWithFramesRemaining / 20),
-  },
-];
+});
+register({
+  name: "perfect_20",
+  title: "Perfectionist",
+  description: "Win 20 waves with grids to spare",
+  check: (player) => player.wavesWithFramesRemaining >= 20,
+  progress: (player) => Math.min(1, player.wavesWithFramesRemaining / 20),
+});
 
 // Achievement Tracker Singleton
 
@@ -190,6 +198,8 @@ class AchievementTrackerImpl {
 
   constructor() {
     this.load();
+    console.log(`Loaded achievements: ${Object.keys(this.unlocks)}.`);
+    console.log(`Player stats: ${JSON.stringify(this.playerStats)}`);
   }
 
   // General
@@ -220,7 +230,7 @@ class AchievementTrackerImpl {
   }
 
   private checkAchievements(): void {
-    for (const achievement of Achievements) {
+    for (const achievement of Object.values(Achievements)) {
       if (achievement.check(this.playerStats, this.runStats)) {
         this.unlockAchievement(achievement);
       }
@@ -271,7 +281,7 @@ class AchievementTrackerImpl {
     }
 
     // Check
-    for (const achievement of Achievements) {
+    for (const achievement of Object.values(Achievements)) {
       if (
         achievement.checkOnGridScored &&
         achievement.checkOnGridScored(wave, score)
@@ -297,6 +307,19 @@ class AchievementTrackerImpl {
     this.playerStats.itemsCollected[item.name] =
       (this.playerStats.itemsCollected[item.name] || 0) + 1;
     this.checkAchievements();
+  }
+
+  // Query
+
+  list(): { achievement: Achievement; unlock: number | null }[] {
+    const result: { achievement: Achievement; unlock: number | null }[] = [];
+    for (const achievement of Object.values(Achievements)) {
+      result.push({
+        achievement,
+        unlock: this.unlocks[achievement.name] || null,
+      });
+    }
+    return result;
   }
 }
 

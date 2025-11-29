@@ -9,7 +9,7 @@ window.onload = () => {
   S.start();
 
   const settings: G.GameSettings = {
-    skipTo: null,
+    skipTo: null, //"achievements",
     run: R.standardSettings({
       waves: 20,
       start: { common: 4, uncommon: 2, rare: 1 },
@@ -18,6 +18,7 @@ window.onload = () => {
         // Actions
         "swap",
         "swap",
+        // "gravity",
         // Patterns
         // Bonuses
       ],
