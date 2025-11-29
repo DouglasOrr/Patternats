@@ -10,10 +10,10 @@ window.onload = () => {
   G.registerItems(Items);
 
   const settings: G.GameSettings = {
-    skipTo: null,
+    // skipTo: null,
     // skipTo: "new_run",
     // skipTo: "achievements",
-    // skipTo: "settings",
+    skipTo: "settings",
     run: R.standardSettings({
       waves: 20,
       start: { common: 4, uncommon: 2, rare: 1 },

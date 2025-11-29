@@ -43,7 +43,16 @@ input[type="checkbox"] {
   height: 1.5em;
   margin-left: 1em;
   vertical-align: middle;
-  accent-color: #444;
+  /* manual styling */
+  appearance: none;
+  background-color: transparent;
+  border: 2px solid #444;
+  border-radius: 3px;
+}
+input[type="checkbox"]:checked {
+  background-color: #444;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z' stroke='white' stroke-width='1.5'/%3E%3C/svg%3E");
+  background-size: contain;
 }
 
 .tooltip {
@@ -110,6 +119,20 @@ input[type="checkbox"] {
 
 .screen-center {
   justify-content: center;
+}
+
+.back-button {
+  position: absolute;
+  top: 1em;
+  left: 1em;
+  width: 2.5em;
+  height: 2.5em;
+  filter: brightness(0.25);
+  border: none;
+}
+.back-button:hover {
+  filter: brightness(0);
+  transform: scale(1.03);
 }
 
 /* Achievements */

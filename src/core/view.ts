@@ -1441,7 +1441,6 @@ class MainMenuScene implements Scene {
 class AchievementsScene implements Scene {
   private destination: G.Menu = null;
   private readonly element: HTMLElement;
-  private readonly backButton: Button;
 
   constructor(readonly context: ViewContext) {
     context.scene.background = Colors.background;
@@ -1453,6 +1452,7 @@ class AchievementsScene implements Scene {
       <button id="achievements-reset">Reset<br>(triple-click)</button>
       <div id="achievements-stats"></div>
       <div id="achievements-list"></div>
+      <img class="back-button" src="img/menu/home.png" alt="Home">
     `;
     document.body.appendChild(this.element);
 
@@ -1492,15 +1492,11 @@ class AchievementsScene implements Scene {
       }
     });
 
-    this.backButton = new Button(
-      loadTexture("img/menu/back.png"),
-      Colors.foreground,
-      /*tipText*/ null,
-      context,
-      () => {
+    this.element
+      .querySelector(".back-button")!
+      .addEventListener("click", () => {
         this.destination = "main_menu";
-      }
-    );
+      });
   }
 
   static createAchievementElement(a: G.AchievementState): HTMLElement {
@@ -1566,13 +1562,7 @@ class AchievementsScene implements Scene {
     return this.destination !== null;
   }
 
-  update(): void {
-    const w = this.context.camera.right - this.context.camera.left;
-    const h = this.context.camera.top - this.context.camera.bottom;
-    const buttonSize = Math.min(w * 0.1, h * 0.12);
-    const margin = buttonSize * 0.8;
-    this.backButton.update(margin, h - margin, buttonSize, buttonSize);
-  }
+  update(): void {}
 
   dispose(): void {
     document.body.removeChild(this.element);
@@ -1583,7 +1573,6 @@ class AchievementsScene implements Scene {
 class SettingsScene implements Scene {
   private destination: G.Menu = null;
   private readonly element: HTMLElement;
-  private readonly backButton: Button;
 
   constructor(readonly context: ViewContext) {
     context.scene.background = Colors.background;
@@ -1594,7 +1583,8 @@ class SettingsScene implements Scene {
       <h1>Settings</h1>
       <div id="settings-options"></div>
       <div id="settings-credits"></div>
-    `;
+      <img class="back-button" src="img/menu/home.png" alt="Home">
+      `;
     this.buildOptionsElement(
       this.element.querySelector("#settings-options") as HTMLElement
     );
@@ -1602,16 +1592,11 @@ class SettingsScene implements Scene {
       this.element.querySelector("#settings-credits") as HTMLElement
     );
     document.body.appendChild(this.element);
-
-    this.backButton = new Button(
-      loadTexture("img/menu/back.png"),
-      Colors.foreground,
-      /*tipText*/ null,
-      context,
-      () => {
+    this.element
+      .querySelector(".back-button")!
+      .addEventListener("click", () => {
         this.destination = "main_menu";
-      }
-    );
+      });
   }
 
   private buildOptionsElement(element: HTMLElement): void {
@@ -1652,13 +1637,7 @@ class SettingsScene implements Scene {
     return this.destination !== null;
   }
 
-  update(): void {
-    const w = this.context.camera.right - this.context.camera.left;
-    const h = this.context.camera.top - this.context.camera.bottom;
-    const buttonSize = Math.min(w * 0.1, h * 0.12);
-    const margin = buttonSize * 0.8;
-    this.backButton.update(margin, h - margin, buttonSize, buttonSize);
-  }
+  update(): void {}
 
   dispose(): void {
     document.body.removeChild(this.element);
