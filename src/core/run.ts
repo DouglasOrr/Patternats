@@ -20,7 +20,7 @@ export type Chance = { common: number; uncommon: number; rare: number };
 
 export class Select {
   phase: "select" = "select";
-  selected: number | null = null;
+  selected: number | "skip" | null = null;
 
   constructor(readonly items: W.Item[], readonly offers: W.Item[]) {}
 
@@ -173,7 +173,7 @@ export class Run {
         console.error("lastPhase does not match expected phase type");
       }
       if (lastPhase.phase == "select") {
-        if (lastPhase.selected !== null) {
+        if (lastPhase.selected !== null && lastPhase.selected !== "skip") {
           const selectedItem = lastPhase.offers[lastPhase.selected];
           this.items.push(selectedItem);
           this.items.sort((a, b) => a.priority - b.priority);
@@ -240,7 +240,7 @@ registerLevel({
     waves: 20,
     start: { common: 4, uncommon: 1, rare: 0 },
     end: { common: 1, uncommon: 2, rare: 2 },
-    items: ["swap", "swap", "square_s", "l"],
+    items: ["swap", "swap", "square_m", "l"],
     scorePerWave: 100,
     startWithSelect: false,
   }),

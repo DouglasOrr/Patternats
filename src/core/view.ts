@@ -1207,6 +1207,7 @@ class SelectInventoryView {
 
 class SelectOffersView {
   readonly items: Button[] = [];
+  readonly skip: Button;
 
   constructor(readonly select: R.Select, context: ViewContext) {
     for (const [index, item] of select.offers.entries()) {
@@ -1221,6 +1222,16 @@ class SelectOffersView {
       button.selected = true;
       this.items.push(button);
     }
+    this.skip = new Button(
+      loadTexture("img/menu/skip.png"),
+      Colors.foreground,
+      "Skip this item",
+      context,
+      () => {
+        select.selected = "skip";
+      }
+    );
+    this.skip.selected = true;
   }
 
   update(bounds: Box): void {
@@ -1236,6 +1247,13 @@ class SelectOffersView {
         size
       );
     });
+    const skipSize = 0.3 * size;
+    this.skip.update(
+      bounds.cx,
+      bounds.cy - size / 2 - skipSize,
+      skipSize,
+      skipSize
+    );
   }
 }
 
@@ -1619,6 +1637,23 @@ class AchievementsScene implements Scene {
     if (a.unlock) {
       const unlockDate = new Date(a.unlock);
       div.title = `Unlocked ${unlockDate.toDateString()} ${unlockDate.toLocaleTimeString()}`;
+    } else {
+      const playerStats = AchievementTracker.stats();
+      const titleParts: string[] = [];
+      if (a.achievement.progress) {
+        const progress = a.achievement.progress(playerStats);
+        titleParts.push(`${(progress * 100).toFixed(0)}% complete`);
+      }
+      if (a.achievement.todo) {
+        let missing = a.achievement.todo(AchievementTracker.stats());
+        if (missing.length > 4) {
+          missing = missing
+            .slice(0, 4)
+            .concat([`+ ${missing.length - 4} more`]);
+        }
+        titleParts.push(`missing ${missing.join(", ")}`);
+      }
+      div.title = titleParts.join("; ");
     }
     return div;
   }

@@ -10,7 +10,10 @@ export interface Achievement {
   description: string;
   check(player: PlayerStats, run: RunStats | null): boolean;
   checkOnGridScored?(wave: W.Wave, score: W.Score): boolean;
+  checkOnRunEnd?(run: R.Run, outcome: R.RunOutcome): boolean;
+  // Metadata
   progress?(player: PlayerStats): number; // 0-1 for progressive achievements
+  todo?(player: PlayerStats): string[];
   priority?: number;
 }
 
@@ -96,14 +99,14 @@ register({
 register({
   name: "waves_10",
   title: "Wave Rider",
-  description: "Complete 10 waves total",
+  description: "Complete 10 waves, total",
   check: (player) => player.wavesCompleted >= 10,
   progress: (player) => Math.min(1, player.wavesCompleted / 10),
 });
 register({
   name: "waves_50",
   title: "Seasoned",
-  description: "Complete 50 waves total",
+  description: "Complete 50 waves, total",
   check: (player) => player.wavesCompleted >= 50,
   progress: (player) => Math.min(1, player.wavesCompleted / 50),
 });
@@ -117,10 +120,19 @@ register({
 register({
   name: "all_levels",
   title: "Completionist",
-  description: "Defeat all levels",
+  description: "Win every level",
   check: (player) => player.countLevelsWon() >= Object.keys(Levels).length,
   progress: (player) =>
     Math.min(1, player.countLevelsWon() / Object.keys(Levels).length),
+  todo: (player) => {
+    const missing: string[] = [];
+    for (const levelName of Object.keys(Levels)) {
+      if (!(levelName in player.levelsWon)) {
+        missing.push(Levels[levelName].title);
+      }
+    }
+    return missing;
+  },
 });
 
 // Score
@@ -129,25 +141,35 @@ register({
   title: "High Scorer",
   description: "Subtract 500+ nnats with a single grid",
   check: (player) => player.highestGridScore >= 500,
+  progress: (player) => Math.min(1, player.highestGridScore / 500),
 });
 register({
   name: "score_1000",
   title: "Master Scorer",
   description: "Subtract 1000+ nnats with a single grid",
   check: (player) => player.highestGridScore >= 1000,
+  progress: (player) => Math.min(1, player.highestGridScore / 1000),
 });
 register({
   name: "run_score_10000",
   title: "Prolific",
-  description: "Subtract 10000+ nnats total in a single run",
+  description: "Subtract 10,000+ nnats total in a single run",
   check: (player) => player.highestRunScore >= 10000,
+  progress: (player) => Math.min(1, player.highestRunScore / 10000),
+});
+register({
+  name: "lifetime_score_100000",
+  title: "Entropy Hunter",
+  description: "Subtract 100,000+ nnats total",
+  check: (player) => player.totalScore >= 100000,
+  progress: (player) => Math.min(1, player.totalScore / 100000),
 });
 
 // Items
 register({
   name: "collect_rare",
   title: "Rare Collector",
-  description: "Collect 10 rare items",
+  description: "Collect 10 different rare items",
   check: (player) => player.countItemsOfFreq("rare") >= 10,
   progress: (player) => Math.min(1, player.countItemsOfFreq("rare") / 10),
 });
@@ -158,6 +180,15 @@ register({
   check: (player) => player.countItems() >= Object.keys(Items).length,
   progress: (player) =>
     Math.min(1, player.countItems() / Object.keys(Items).length),
+  todo: (player) => {
+    const missing: string[] = [];
+    for (const itemName of Object.keys(Items)) {
+      if (!(itemName in player.itemsCollected)) {
+        missing.push(Items[itemName].title);
+      }
+    }
+    return missing;
+  },
 });
 register({
   name: "match_all",
@@ -166,6 +197,18 @@ register({
   check: (player) => player.countMatchedPatterns() >= totalOfKind("pattern"),
   progress: (player) =>
     Math.min(1, player.countMatchedPatterns() / totalOfKind("pattern")),
+  todo: (player) => {
+    const missing: string[] = [];
+    for (const itemName of Object.keys(Items)) {
+      if (
+        Items[itemName].kind === "pattern" &&
+        !(itemName in player.patternsMatched)
+      ) {
+        missing.push(Items[itemName].title);
+      }
+    }
+    return missing;
+  },
 });
 register({
   name: "use_all",
@@ -174,13 +217,25 @@ register({
   check: (player) => player.countUsedActions() >= totalOfKind("action"),
   progress: (player) =>
     Math.min(1, player.countUsedActions() / totalOfKind("action")),
+  todo: (player) => {
+    const missing: string[] = [];
+    for (const itemName of Object.keys(Items)) {
+      if (
+        Items[itemName].kind === "action" &&
+        !(itemName in player.actionsUsed)
+      ) {
+        missing.push(Items[itemName].title);
+      }
+    }
+    return missing;
+  },
 });
 
 // Special
 register({
   name: "one_group",
   title: "One Group to Rule Them All",
-  description: "Score a grid with only one group",
+  description: "Score a grid with everything connected in a single group",
   check: () => false,
   checkOnGridScored: (_, score) => score.components.length === 1,
 });
@@ -202,9 +257,29 @@ register({
   },
 });
 register({
-  name: "perfect_20",
-  title: "Perfectionist",
-  description: "Win 20 waves with grids to spare",
+  name: "5_groups",
+  title: "Group Effort",
+  description: "Score a grid with patterns in 5 distinct groups",
+  check: () => false,
+  checkOnGridScored: (_, score) =>
+    score.components.filter((c) => c.matches.length > 0).length >= 5,
+});
+register({
+  name: "mvp",
+  title: "Minimum Viable Pattern",
+  description: "Win a run holding just one pattern",
+  check: () => false,
+  checkOnRunEnd: (run, outcome) => {
+    return (
+      outcome.result === "win" &&
+      run.items.filter((item) => item.kind === "pattern").length === 1
+    );
+  },
+});
+register({
+  name: "safe_20",
+  title: "Playing it safe",
+  description: "Defeat 20 waves with grids to spare",
   check: (player) => player.wavesWithFramesRemaining >= 20,
   progress: (player) => Math.min(1, player.wavesWithFramesRemaining / 20),
 });

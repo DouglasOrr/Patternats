@@ -113,8 +113,12 @@ input[type="checkbox"]:checked {
 .screen input,
 .screen label,
 .screen img,
+.screen .achievement,
 .screen [data-clickable] {
   pointer-events: auto;
+}
+.screen > * {
+  max-width: 100%;
 }
 
 .screen-center {
