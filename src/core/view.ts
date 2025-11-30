@@ -1137,7 +1137,10 @@ class PanelView {
     },
     {
       name: "reroll",
-      click: (wave: W.Wave) => wave.reroll(),
+      click: (wave: W.Wave) => {
+        wave.reroll();
+        S.Effects.play("reroll");
+      },
       enable: (wave: W.Wave) => wave.roll < wave.s.maxRolls,
     },
     {
@@ -1815,17 +1818,29 @@ class SettingsScene implements Scene {
 
   private buildOptionsElement(element: HTMLElement): void {
     element.innerHTML = `
-      <label for="music-toggle">Music</label>
-      <input type="checkbox" id="music-toggle" ${
-        S.Player.enabled ? "checked" : ""
-      }>
+      <div>
+        <label for="music-toggle">Music</label>
+        <input type="checkbox" id="music-toggle"
+          ${S.Music.enabled ? "checked" : ""}>
+      </div>
+      <div>
+        <label for="sound-toggle">Sound Effects</label>
+        <input type="checkbox" id="sound-toggle"
+          ${S.Effects.enabled ? "checked" : ""}>
+      </div>
     `;
     const musicToggle = element.querySelector(
       "#music-toggle"
     ) as HTMLInputElement;
     musicToggle.addEventListener("change", () => {
-      S.Player.shuffle();
-      S.Player.enabled = musicToggle.checked;
+      S.Music.shuffle();
+      S.Music.enabled = musicToggle.checked;
+    });
+    const soundToggle = element.querySelector(
+      "#sound-toggle"
+    ) as HTMLInputElement;
+    soundToggle.addEventListener("change", () => {
+      S.Effects.enabled = soundToggle.checked;
     });
   }
 

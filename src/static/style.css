@@ -184,6 +184,11 @@ input[type="checkbox"]:checked {
 
 /* Settings */
 
+#settings-options > * {
+  margin-bottom: 0.5em;
+  text-align: right;
+}
+
 #settings-credits {
   margin-top: 2em;
 }
