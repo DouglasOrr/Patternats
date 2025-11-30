@@ -135,6 +135,29 @@ input[type="checkbox"]:checked {
   transform: scale(1.03);
 }
 
+/* Introduction */
+
+.introduction {
+  padding: 2em;
+  max-width: 600px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+}
+.introduction button {
+  margin-top: 2em;
+}
+.introduction li {
+  text-align: left;
+  margin-bottom: 0.5em;
+}
+.introduction img {
+  width: 1em;
+  height: 1em;
+  filter: brightness(0.25);
+  vertical-align: middle;
+}
+
 /* Achievements */
 
 #achievements-stats {

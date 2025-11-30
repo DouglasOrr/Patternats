@@ -10,6 +10,7 @@ window.onload = () => {
   A.setItemsAndLevels(Items, R.Levels);
   V.start({
     skipTo: null,
+    // skipTo: "introduction",
     // skipTo: {level: "level_0"},
     // skipTo: "achievements",
     // skipTo: "settings",

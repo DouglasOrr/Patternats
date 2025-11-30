@@ -8,6 +8,7 @@ export type Menu =
   | "main_menu"
   | "achievements"
   | "settings"
+  | "introduction"
   | { level: string }
   | null;
 
@@ -1403,9 +1404,17 @@ class MainMenuScene implements Scene {
           context,
           () => {
             if (dest instanceof Object && "level" in dest) {
-              dest.level = this.destinationLevel;
+              if (
+                this.destinationLevel === "level_0" &&
+                AchievementTracker.stats().wavesCompleted === 0
+              ) {
+                this.destination = "introduction";
+              } else {
+                this.destination = { level: this.destinationLevel };
+              }
+            } else {
+              this.destination = dest;
             }
-            this.destination = dest;
           }
         )
       );
@@ -1481,6 +1490,56 @@ class MainMenuScene implements Scene {
   }
 
   dispose(): void {
+    disposeScene(this.context.scene);
+  }
+}
+
+class IntroductionScene implements Scene {
+  private continue: boolean = false;
+  private readonly element: HTMLElement;
+
+  constructor(readonly context: ViewContext) {
+    context.scene.background = Colors.background;
+
+    this.element = document.createElement("div");
+    this.element.classList.add("screen");
+    this.element.innerHTML = `
+      <h1>Your first run</h1>
+      <div class="introduction">
+        <p>Waves of entropy are crashing through the cosmos, threatening to
+        make life <em>infinitely boring</em>. Your job is to restore order by
+        finding patterns in the fundamental fabric of reality.</p>
+
+        <ul>
+          <li>Your goal is to reduce entropy (measured in nano nats, <b>nnats</b>), by making patterns in a <b>grid</b>.</li>
+          <li>You've 3 grids per <b>wave</b> to reduce entropy to zero, or the game is over.</li>
+          <li>You can collect <b>actions</b>, <b>patterns</b>, and <b>bonuses</b> to help you.</li>
+          <li><b>Actions</b> like swap <img src="img/action/swap.png"> are selected and used manually on the grid.</li>
+          <li><b>Patterns</b> are matched automatically <em>(try hovering the grid)</em>.</li>
+          <li><b>Bonuses</b> apply extra effects to reduce entropy.</li>
+        </ul>
+        <button>Click to begin</button>
+      </div>
+    `;
+    document.body.appendChild(this.element);
+
+    this.element.addEventListener("click", () => {
+      this.continue = true;
+    });
+  }
+
+  navigate(): Menu {
+    return { level: "level_0" };
+  }
+
+  finished(): boolean {
+    return this.continue;
+  }
+
+  update(): void {}
+
+  dispose(): void {
+    document.body.removeChild(this.element);
     disposeScene(this.context.scene);
   }
 }
@@ -1846,9 +1905,21 @@ class Renderer {
     const context = this.renewContext();
     const dest = this.nextDestination();
     switch (dest) {
+      case null:
+        // Continue within run (WaveScene or SelectScene finished)
+        this.setRunPhase(
+          (this.scene as WaveScene | SelectScene).nextRunPhase(),
+          context
+        );
+        break;
+
       case "main_menu":
         this.run = null;
         this.scene = new MainMenuScene(context);
+        break;
+
+      case "introduction":
+        this.scene = new IntroductionScene(context);
         break;
 
       case "achievements":
@@ -1857,14 +1928,6 @@ class Renderer {
 
       case "settings":
         this.scene = new SettingsScene(context);
-        break;
-
-      case null:
-        // Continue within run (WaveScene or SelectScene finished)
-        this.setRunPhase(
-          (this.scene as WaveScene | SelectScene).nextRunPhase(),
-          context
-        );
         break;
 
       default:

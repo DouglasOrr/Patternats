@@ -89,18 +89,22 @@ export function standardSettings(s: {
   end: Chance;
   items: string[];
   scorePerWave: number;
+  startWithSelect?: boolean;
 }): RunSettings {
   const schedule: Phase[] = [];
-  schedule.push({
-    type: "select",
-    only: "pattern",
-    chance: s.start,
-  });
+  const startWithSelect = s.startWithSelect ?? true;
+  if (startWithSelect) {
+    schedule.push({
+      type: "select",
+      only: "pattern",
+      chance: s.start,
+    });
+  }
   for (let w = 0; w < s.waves; w++) {
     const c0 = s.start;
     const c1 = s.end;
     const r = w / (s.waves - 1);
-    if (w > 0) {
+    if (w > 0 || (w === 0 && startWithSelect)) {
       schedule.push({
         type: "select",
         chance: {
@@ -214,7 +218,7 @@ export class Run {
   }
 }
 
-// Game
+// Levels
 
 export interface Level {
   name: string;
@@ -234,10 +238,11 @@ registerLevel({
   title: "Level 1",
   settings: standardSettings({
     waves: 20,
-    start: { common: 4, uncommon: 2, rare: 1 },
+    start: { common: 4, uncommon: 1, rare: 0 },
     end: { common: 1, uncommon: 2, rare: 2 },
-    items: ["swap", "swap"],
+    items: ["swap", "swap", "square_s", "l"],
     scorePerWave: 100,
+    startWithSelect: false,
   }),
 });
 registerLevel({
@@ -246,7 +251,7 @@ registerLevel({
   title: "Level 2",
   settings: standardSettings({
     waves: 20,
-    start: { common: 4, uncommon: 2, rare: 1 },
+    start: { common: 4, uncommon: 1, rare: 0 },
     end: { common: 1, uncommon: 2, rare: 2 },
     items: ["swap", "swap"],
     scorePerWave: 150,
@@ -258,7 +263,7 @@ registerLevel({
   title: "Level 3",
   settings: standardSettings({
     waves: 20,
-    start: { common: 4, uncommon: 2, rare: 1 },
+    start: { common: 4, uncommon: 1, rare: 0 },
     end: { common: 1, uncommon: 2, rare: 2 },
     items: ["swap", "swap"],
     scorePerWave: 200,
@@ -270,7 +275,7 @@ registerLevel({
   title: "Shift & Flip (Challenge)",
   settings: standardSettings({
     waves: 20,
-    start: { common: 4, uncommon: 2, rare: 1 },
+    start: { common: 4, uncommon: 1, rare: 0 },
     end: { common: 1, uncommon: 2, rare: 2 },
     items: ["shift", "shift", "shift", "flip_y"],
     scorePerWave: 100,
