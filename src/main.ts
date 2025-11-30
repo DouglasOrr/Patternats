@@ -11,7 +11,7 @@ window.onload = () => {
   V.start({
     skipTo: null,
     // skipTo: "introduction",
-    // skipTo: { level: "level_1" },
+    // skipTo: { level: "level_0" },
     // skipTo: "achievements",
     // skipTo: "settings",
   });

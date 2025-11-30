@@ -22,7 +22,7 @@ class MusicPlayerImpl {
     this.shuffle();
     this.audio = new Audio();
     this.audio.onended = () => this.next();
-    this.audio.volume = 0.5;
+    this.audio.volume = 0.4;
     // wait for interaction before autoplaying
     const player = this;
     function onClick() {
@@ -64,6 +64,13 @@ class MusicPlayerImpl {
   }
 }
 
+const EffectVolume: Record<string, number> = {
+  submit: 0.7,
+  reroll: 1,
+  action: 1,
+};
+const DefaultEffectVolume = 0.5;
+
 class EffectsPlayerImpl {
   private effectAudio: Record<string, HTMLAudioElement> = {};
 
@@ -82,7 +89,7 @@ class EffectsPlayerImpl {
       if (!template) {
         template = new Audio(`sound/${name}.mp3`);
         template.preload = "auto";
-        template.volume = 0.5;
+        template.volume = EffectVolume[name] ?? DefaultEffectVolume;
         this.effectAudio[name] = template;
       }
       const instance = template.cloneNode(true) as HTMLAudioElement;

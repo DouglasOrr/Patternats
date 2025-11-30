@@ -302,8 +302,6 @@ class AchievementTrackerImpl {
 
   constructor() {
     this.load();
-    console.log(`Loaded achievements: ${Object.keys(this.unlocks)}`);
-    console.log(`Player stats: ${JSON.stringify(this.playerStats)}`);
   }
 
   // General

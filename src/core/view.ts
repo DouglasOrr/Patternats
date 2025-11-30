@@ -737,10 +737,12 @@ class GridView {
                 this.swapSrc = null; // cancel
               } else {
                 this.wave.execute(actionIdx, { i: this.swapSrc, j: cellIdx });
+                S.Effects.play("action");
                 this.swapSrc = null;
               }
             } else if (actionName == "wildcard") {
               this.wave.execute(actionIdx, { i: mrow * grid.cols + mcol });
+              S.Effects.play("action");
             }
           }
         }
@@ -778,6 +780,7 @@ class GridView {
                 : "up",
               index: isLeft || isRight ? mrow : mcol,
             });
+            S.Effects.play("action");
           }
         }
       }
@@ -1132,7 +1135,10 @@ class PanelView {
   private static readonly Controls = [
     {
       name: "submit",
-      click: (wave: W.Wave) => wave.submit(),
+      click: (wave: W.Wave) => {
+        wave.submit();
+        S.Effects.play("submit");
+      },
       enable: () => true,
     },
     {
@@ -1181,6 +1187,7 @@ class PanelView {
             button.selected = true;
           } else {
             this.wave.execute(index);
+            S.Effects.play("action");
           }
         },
         {
@@ -1888,6 +1895,7 @@ class RunOutcomeScene implements Scene {
     `;
     this.element.classList.add("screen", "screen-center");
     document.body.appendChild(this.element);
+    S.Effects.play(outcome.result);
 
     this.element.addEventListener("click", () => {
       this.clickedContinue = true;
@@ -1988,7 +1996,6 @@ class Renderer {
     this.nextScene();
 
     AchievementTracker.onUnlock = (achievement) => {
-      console.log(`Achievement unlocked: ${JSON.stringify(achievement)}`);
       this.achievementOverlay.onUnlock(achievement);
     };
 
