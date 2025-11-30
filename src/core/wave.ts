@@ -1,4 +1,4 @@
-import { AchievementTracker } from "./game";
+import { AchievementTracker } from "./achievements";
 
 /**
  * Single cell type: empty, filled or wildcard.

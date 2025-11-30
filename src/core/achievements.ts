@@ -1,16 +1,8 @@
 import type * as R from "./run";
 import type * as W from "./wave";
 
-export type Menu = "main_menu" | "new_run" | "achievements" | "settings" | null;
-
-export interface GameSettings {
-  skipTo: Menu;
-  run: R.RunSettings;
-}
-
-// Achievement System
-
 const Items = {} as Record<string, W.Item>;
+const Levels = {} as Record<string, R.Level>;
 
 export interface Achievement {
   name: string;
@@ -37,6 +29,9 @@ class PlayerStats {
   highestGridScore: number = 0;
   highestRunScore: number = 0;
   wavesWithFramesRemaining: number = 0;
+
+  // Levels
+  levelsWon: Record<string, number> = {};
 
   // Item stats
   itemsCollected: Record<string, number> = {};
@@ -66,6 +61,10 @@ class PlayerStats {
       (acc, count) => acc + +(count > 0),
       0
     );
+  }
+  countLevelsWon(): number {
+    return Object.entries(this.levelsWon).filter(([_, count]) => count > 0)
+      .length;
   }
 }
 
@@ -114,6 +113,14 @@ register({
   description: "Win 5 runs",
   check: (player) => player.runsWon >= 5,
   progress: (player) => Math.min(1, player.runsWon / 5),
+});
+register({
+  name: "all_levels",
+  title: "Completionist",
+  description: "Defeat all levels",
+  check: (player) => player.countLevelsWon() >= Object.keys(Levels).length,
+  progress: (player) =>
+    Math.min(1, player.countLevelsWon() / Object.keys(Levels).length),
 });
 
 // Score
@@ -273,9 +280,15 @@ class AchievementTrackerImpl {
     this.playerStats.runsStarted++;
   }
 
-  onRunEnd(outcome: R.RunOutcome): void {
+  onRunEnd(run: R.Run, outcome: R.RunOutcome): void {
     this.playerStats.runsWon += +(outcome.result === "win");
     this.playerStats.runsLost += +(outcome.result === "lose");
+    if (outcome.result === "win") {
+      this.playerStats.levelsWon[run.level] =
+        (this.playerStats.levelsWon[run.level] || 0) + 1;
+    }
+    this.checkAchievements();
+    this.runStats = null;
   }
 
   onGridScored(wave: W.Wave, score: W.Score): void {
@@ -351,6 +364,11 @@ class AchievementTrackerImpl {
 }
 
 export const AchievementTracker = new AchievementTrackerImpl();
-export function registerItems(items: Record<string, W.Item>): void {
+
+export function setItemsAndLevels(
+  items: Record<string, W.Item>,
+  levels: Record<string, R.Level>
+): void {
   Object.assign(Items, items);
+  Object.assign(Levels, levels);
 }

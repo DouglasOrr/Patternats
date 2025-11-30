@@ -1,4 +1,4 @@
-import { AchievementTracker } from "./game";
+import { AchievementTracker } from "./achievements";
 import { Items } from "./items";
 import * as W from "./wave";
 
@@ -88,22 +88,19 @@ export function standardSettings(s: {
   start: Chance;
   end: Chance;
   items: string[];
-  skipToFirstWave?: boolean;
+  scorePerWave: number;
 }): RunSettings {
-  const skipToFirstWave = s.skipToFirstWave ?? false;
   const schedule: Phase[] = [];
-  if (!skipToFirstWave) {
-    schedule.push({
-      type: "select",
-      only: "pattern",
-      chance: s.start,
-    });
-  }
+  schedule.push({
+    type: "select",
+    only: "pattern",
+    chance: s.start,
+  });
   for (let w = 0; w < s.waves; w++) {
     const c0 = s.start;
     const c1 = s.end;
     const r = w / (s.waves - 1);
-    if (w > 0 || !skipToFirstWave) {
+    if (w > 0) {
       schedule.push({
         type: "select",
         chance: {
@@ -113,7 +110,7 @@ export function standardSettings(s: {
         },
       });
     }
-    schedule.push({ type: "wave", targetScore: (w + 1) * 100 });
+    schedule.push({ type: "wave", targetScore: (w + 1) * s.scorePerWave });
   }
 
   return {
@@ -133,7 +130,7 @@ export class Run {
   readonly items: W.Item[];
   private phaseIndex = -1;
 
-  constructor(readonly s: RunSettings) {
+  constructor(readonly s: RunSettings, readonly level: string) {
     this.items = s.items.slice();
     this.items.sort((a, b) => a.priority - b.priority);
     AchievementTracker.onRunStart();
@@ -154,6 +151,12 @@ export class Run {
       }
     }
     return count;
+  }
+
+  forceWin(): RunOutcome {
+    const outcome = new RunOutcome("win");
+    AchievementTracker.onRunEnd(this, outcome);
+    return outcome;
   }
 
   next(lastPhase?: W.Wave | Select | RunOutcome): W.Wave | Select | RunOutcome {
@@ -179,7 +182,7 @@ export class Run {
         }
         if (lastPhase.status === "lose") {
           const outcome = new RunOutcome("lose");
-          AchievementTracker.onRunEnd(outcome);
+          AchievementTracker.onRunEnd(this, outcome);
           return outcome;
         }
       }
@@ -188,7 +191,7 @@ export class Run {
     this.phaseIndex++;
     if (this.phaseIndex >= this.s.schedule.length) {
       const outcome = new RunOutcome("win");
-      AchievementTracker.onRunEnd(outcome);
+      AchievementTracker.onRunEnd(this, outcome);
       return outcome;
     }
     // Return next phase
@@ -210,3 +213,66 @@ export class Run {
     throw new Error(`Unexpected phase ${JSON.stringify(phase)}`);
   }
 }
+
+// Game
+
+export interface Level {
+  name: string;
+  title: string;
+  unlockedBy: string | null;
+  settings: RunSettings;
+}
+
+export const Levels: Record<string, Level> = {};
+
+function registerLevel(level: Level): void {
+  Levels[level.name] = level;
+}
+registerLevel({
+  name: "level_0",
+  unlockedBy: null,
+  title: "Level 1",
+  settings: standardSettings({
+    waves: 20,
+    start: { common: 4, uncommon: 2, rare: 1 },
+    end: { common: 1, uncommon: 2, rare: 2 },
+    items: ["swap", "swap"],
+    scorePerWave: 100,
+  }),
+});
+registerLevel({
+  name: "level_1",
+  unlockedBy: "level_0",
+  title: "Level 2",
+  settings: standardSettings({
+    waves: 20,
+    start: { common: 4, uncommon: 2, rare: 1 },
+    end: { common: 1, uncommon: 2, rare: 2 },
+    items: ["swap", "swap"],
+    scorePerWave: 150,
+  }),
+});
+registerLevel({
+  name: "level_2",
+  unlockedBy: "level_1",
+  title: "Level 3",
+  settings: standardSettings({
+    waves: 20,
+    start: { common: 4, uncommon: 2, rare: 1 },
+    end: { common: 1, uncommon: 2, rare: 2 },
+    items: ["swap", "swap"],
+    scorePerWave: 200,
+  }),
+});
+registerLevel({
+  name: "level_shift",
+  unlockedBy: "level_0",
+  title: "Shift & Flip (Challenge)",
+  settings: standardSettings({
+    waves: 20,
+    start: { common: 4, uncommon: 2, rare: 1 },
+    end: { common: 1, uncommon: 2, rare: 2 },
+    items: ["shift", "shift", "shift", "flip_y"],
+    scorePerWave: 100,
+  }),
+});

@@ -1,14 +1,18 @@
 import * as THREE from "three";
 import * as R from "./run";
-import * as G from "./game";
+import { AchievementTracker, AchievementState } from "./achievements";
 import * as W from "./wave";
 import * as S from "./sound";
 
-export function start(settings: G.GameSettings): void {
-  new Renderer(
-    settings,
-    document.getElementById("canvas-main") as HTMLCanvasElement
-  );
+export type Menu =
+  | "main_menu"
+  | "achievements"
+  | "settings"
+  | { level: string }
+  | null;
+
+export function start(s: { skipTo: Menu }): void {
+  new Renderer(s, document.getElementById("canvas-main") as HTMLCanvasElement);
 }
 
 // Utility
@@ -193,7 +197,7 @@ class Tooltip {
         tipX += offset;
         tipY += offset;
       }
-      const bounds = this.element.getBoundingClientRect();
+      const bounds = this.canvas.getBoundingClientRect();
       tipX = Math.min(tipX, bounds.right - rightMarginPx);
       this.element.style.left = `${tipX}px`;
       this.element.style.top = `${tipY}px`;
@@ -1279,7 +1283,7 @@ function topLevelLayout(context: ViewContext): {
 
 interface Scene {
   readonly context: ViewContext;
-  navigate(): G.Menu;
+  navigate(): Menu;
   finished(): boolean;
   update(): void;
   dispose(): void;
@@ -1290,7 +1294,7 @@ class WaveScene implements Scene {
   private readonly gridView: GridView;
   private readonly progressView: ProgressView;
   private readonly panelView: PanelView;
-  private navigateTo: G.Menu = null;
+  private navigateTo: Menu = null;
 
   constructor(
     private readonly run: R.Run,
@@ -1312,7 +1316,7 @@ class WaveScene implements Scene {
     );
   }
 
-  navigate(): G.Menu {
+  navigate(): Menu {
     return this.navigateTo;
   }
 
@@ -1341,7 +1345,7 @@ class SelectScene implements Scene {
   private readonly menu: MenuView;
   private readonly offers: SelectOffersView;
   private readonly inventory: SelectInventoryView;
-  private navigateTo: G.Menu = null;
+  private navigateTo: Menu = null;
 
   constructor(
     private readonly run: R.Run,
@@ -1357,7 +1361,7 @@ class SelectScene implements Scene {
     this.inventory = new SelectInventoryView(select, context);
   }
 
-  navigate(): G.Menu {
+  navigate(): Menu {
     return this.navigateTo;
   }
 
@@ -1382,31 +1386,60 @@ class SelectScene implements Scene {
 }
 
 class MainMenuScene implements Scene {
-  private destination: G.Menu = null;
-  private readonly buttons: Button[] = [];
+  private destination: Menu = null;
+  private destinationLevel: string = "level_0";
+  private readonly mainButtons: Button[] = [];
+  private readonly levelButtons: Button[] = [];
 
   constructor(readonly context: ViewContext) {
     context.scene.background = Colors.background;
 
-    const addButton = (texture: string, tip: string, dest: G.Menu) => {
-      this.buttons.push(
+    const addButton = (texture: string, tip: string, dest: Menu) => {
+      this.mainButtons.push(
         new Button(
           loadTexture(texture),
           Colors.foreground,
           tip,
           context,
           () => {
+            if (dest instanceof Object && "level" in dest) {
+              dest.level = this.destinationLevel;
+            }
             this.destination = dest;
           }
         )
       );
     };
-    addButton("img/menu/new_run.png", "New Run", "new_run");
+    addButton("img/menu/new_run.png", "New Run", { level: "level_0" });
     addButton("img/menu/trophy.png", "Achievements", "achievements");
     addButton("img/menu/settings.png", "Settings", "settings");
+
+    const stats = AchievementTracker.stats();
+    for (const level of Object.values(R.Levels)) {
+      const button = new Button(
+        loadTexture(`img/level/${level.name}.png`),
+        Colors.foreground,
+        level.title,
+        context,
+        (button) => {
+          this.destinationLevel = level.name;
+          for (const otherButton of this.levelButtons) {
+            otherButton.selected = false;
+          }
+          button.selected = true;
+        }
+      );
+      button.enabled =
+        level.unlockedBy === null ||
+        (stats.levelsWon[level.unlockedBy] ?? 0) > 0;
+      if (this.destinationLevel === level.name) {
+        button.selected = true;
+      }
+      this.levelButtons.push(button);
+    }
   }
 
-  navigate(): G.Menu {
+  navigate(): Menu {
     return this.destination;
   }
 
@@ -1419,16 +1452,30 @@ class MainMenuScene implements Scene {
     const h = this.context.camera.top - this.context.camera.bottom;
     const buttonSize = Math.min(w * 0.15, h * 0.2);
     const spacing = buttonSize * 1.5;
-    const totalWidth = spacing * (this.buttons.length - 1);
+    const totalWidth = spacing * (this.mainButtons.length - 1);
     const startX = w / 2 - totalWidth / 2;
     const centerY = h / 2;
 
-    for (let i = 0; i < this.buttons.length; i++) {
-      this.buttons[i].update(
+    for (let i = 0; i < this.mainButtons.length; i++) {
+      this.mainButtons[i].update(
         startX + i * spacing,
         centerY,
         buttonSize,
         buttonSize
+      );
+    }
+
+    const levelButtonCols = 2;
+    const levelButtonSize = spacing / 3;
+    for (let i = 0; i < this.levelButtons.length; i++) {
+      const col = i % levelButtonCols;
+      const row = Math.floor(i / levelButtonCols);
+
+      this.levelButtons[i].update(
+        startX + (col - levelButtonCols / 2 + 0.5) * levelButtonSize,
+        centerY - spacing / 2 - row * levelButtonSize,
+        levelButtonSize,
+        levelButtonSize
       );
     }
   }
@@ -1439,7 +1486,7 @@ class MainMenuScene implements Scene {
 }
 
 class AchievementsScene implements Scene {
-  private destination: G.Menu = null;
+  private destination: Menu = null;
   private readonly element: HTMLElement;
 
   constructor(readonly context: ViewContext) {
@@ -1481,7 +1528,7 @@ class AchievementsScene implements Scene {
       }
       if (clickCount >= 3) {
         clickCount = 0;
-        G.AchievementTracker.reset();
+        AchievementTracker.reset();
         this.buildStatsElement(statsElement);
         this.buildAchievementList(listElement);
       } else {
@@ -1499,7 +1546,7 @@ class AchievementsScene implements Scene {
       });
   }
 
-  static createAchievementElement(a: G.AchievementState): HTMLElement {
+  static createAchievementElement(a: AchievementState): HTMLElement {
     const div = document.createElement("div");
     div.classList.add("achievement");
     div.innerHTML = `
@@ -1519,7 +1566,7 @@ class AchievementsScene implements Scene {
 
   private buildAchievementList(element: HTMLElement): void {
     element.innerHTML = "";
-    const achievements = G.AchievementTracker.list();
+    const achievements = AchievementTracker.list();
     achievements.sort((a, b) => {
       const aUnlocked = a.unlock !== null;
       const bUnlocked = b.unlock !== null;
@@ -1537,16 +1584,20 @@ class AchievementsScene implements Scene {
 
   private buildStatsElement(element: HTMLElement): void {
     element.innerHTML = "";
-    const stats = G.AchievementTracker.stats();
+    const stats = AchievementTracker.stats();
     const runsAbandoned = stats.runsStarted - stats.runsWon - stats.runsLost;
-    const achievements = G.AchievementTracker.list();
+    const achievements = AchievementTracker.list();
     const unlockedCount = achievements.filter((a) => a.unlock !== null).length;
+    const levelsWon = Object.entries(stats.levelsWon).filter(
+      ([, wins]) => wins > 0
+    ).length;
 
     for (const line of [
       `Runs: ${stats.runsWon}W / ${stats.runsLost}L / ${runsAbandoned}A` +
         `  |  Waves: ${stats.wavesCompleted}`,
       `Total: ${stats.totalScore} nnats  |  Best: ${stats.highestGridScore} nnats`,
-      `Achievements: ${unlockedCount}/${achievements.length}`,
+      `Achievements: ${unlockedCount}/${achievements.length}` +
+        `  |  Levels: ${levelsWon}/${Object.keys(R.Levels).length}`,
     ]) {
       const div = document.createElement("pre");
       div.textContent = line;
@@ -1554,7 +1605,7 @@ class AchievementsScene implements Scene {
     }
   }
 
-  navigate(): G.Menu {
+  navigate(): Menu {
     return this.destination;
   }
 
@@ -1571,7 +1622,7 @@ class AchievementsScene implements Scene {
 }
 
 class SettingsScene implements Scene {
-  private destination: G.Menu = null;
+  private destination: Menu = null;
   private readonly element: HTMLElement;
 
   constructor(readonly context: ViewContext) {
@@ -1629,7 +1680,7 @@ class SettingsScene implements Scene {
     `;
   }
 
-  navigate(): G.Menu {
+  navigate(): Menu {
     return this.destination;
   }
 
@@ -1665,7 +1716,7 @@ class RunOutcomeScene implements Scene {
     });
   }
 
-  navigate(): G.Menu {
+  navigate(): Menu {
     return "main_menu";
   }
 
@@ -1683,7 +1734,7 @@ class RunOutcomeScene implements Scene {
 
 class AchievementOverlay {
   readonly element: HTMLElement;
-  queue: G.AchievementState[] = [];
+  queue: AchievementState[] = [];
   timer: number | null = null;
 
   constructor() {
@@ -1694,7 +1745,7 @@ class AchievementOverlay {
     document.body.appendChild(this.element);
   }
 
-  onUnlock(achievement: G.AchievementState) {
+  onUnlock(achievement: AchievementState) {
     this.queue.push(achievement);
   }
 
@@ -1735,16 +1786,15 @@ class Renderer {
   private readonly mouse: Mouse;
   private readonly tooltip: Tooltip;
   private readonly achievementOverlay = new AchievementOverlay();
+  private readonly skipTo: Menu;
 
   // State
   private lastTime: number | null = null;
   private scene: Scene | null = null;
   private run: R.Run | null = null;
 
-  constructor(
-    private readonly settings: G.GameSettings,
-    canvas: HTMLCanvasElement
-  ) {
+  constructor(s: { skipTo: Menu }, canvas: HTMLCanvasElement) {
+    this.skipTo = s.skipTo;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
     this.camera = new THREE.OrthographicCamera();
     this.camera.near = 0.1;
@@ -1759,40 +1809,46 @@ class Renderer {
 
     this.nextScene();
 
-    G.AchievementTracker.onUnlock = (achievement) => {
+    AchievementTracker.onUnlock = (achievement) => {
       console.log(`Achievement unlocked: ${JSON.stringify(achievement)}`);
       this.achievementOverlay.onUnlock(achievement);
     };
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "\\" && e.altKey && e.ctrlKey && this.run !== null) {
+        this.setRunPhase(this.run.forceWin(), this.renewContext());
+      }
+    });
   }
 
-  private nextDestination(): G.Menu {
+  private nextDestination(): Menu {
     if (this.scene) {
       return this.scene.navigate();
     }
     // First scene
-    return this.settings.skipTo || "main_menu";
+    return this.skipTo || "main_menu";
   }
 
-  private nextScene() {
+  private renewContext(): ViewContext {
     if (this.scene) {
       this.scene.dispose();
       this.tooltip.hide();
     }
-    const context = {
+    return {
       mouse: this.mouse,
       tooltip: this.tooltip,
       scene: new THREE.Scene(),
       camera: this.camera,
     };
-    switch (this.nextDestination()) {
+  }
+
+  private nextScene() {
+    const context = this.renewContext();
+    const dest = this.nextDestination();
+    switch (dest) {
       case "main_menu":
         this.run = null;
         this.scene = new MainMenuScene(context);
-        break;
-
-      case "new_run":
-        this.run = new R.Run(this.settings.run);
-        this.setRunPhase(this.run.next(), context);
         break;
 
       case "achievements":
@@ -1809,6 +1865,12 @@ class Renderer {
           (this.scene as WaveScene | SelectScene).nextRunPhase(),
           context
         );
+        break;
+
+      default:
+        const level = R.Levels[dest.level];
+        this.run = new R.Run(level.settings, level.name);
+        this.setRunPhase(this.run.next(), context);
         break;
     }
   }
