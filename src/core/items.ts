@@ -173,17 +173,17 @@ pattern("Square XL", "xxxxx/xxxxx/xxxxx/xxxxx/xxxxx", 1000, "rare");
 // Lines
 pattern("Line", "xxxx", 3, "uncommon");
 pattern("Line L", "xxxxxx", 10, "uncommon");
-pattern("Line XXL", "xxxxxxxxx", 200, "rare");
+pattern("Line XXL", "xxxxxxxxx", 180, "rare");
 pattern("Column", "x/x/x/x", 3, "uncommon");
 pattern("Column L", "x/x/x/x/x/x", 10, "uncommon");
-pattern("Column XXL", "x/x/x/x/x/x/x/x/x", 200, "rare");
+pattern("Column XXL", "x/x/x/x/x/x/x/x/x", 180, "rare");
 
 // 2x3 | 3x2
-pattern("Rhode Island Z", "-xx/xx-", 14, "common");
-pattern("Cleveland Z", "xx-/-xx", 14, "common");
-pattern("Letter L", "x-/x-/xx", 14, "common");
-pattern("Letter C", "xx/x-/xx", 14, "uncommon");
-pattern("Thumbs Up", "-x/xx/xx", 14, "uncommon");
+pattern("Rhode Island Z", "-xx/xx-", 16, "common");
+pattern("Cleveland Z", "xx-/-xx", 16, "common");
+pattern("Letter L", "x-/x-/xx", 16, "common");
+pattern("Letter C", "xx/x-/xx", 16, "uncommon");
+pattern("Thumbs Up", "-x/xx/xx", 16, "uncommon");
 
 // 3x3
 pattern("Plus", "-x-/xxx/-x-", 50, "common");
@@ -191,12 +191,12 @@ pattern("Box", "xxx/x-x/xxx", 50, "common");
 pattern("Heli Pad", "x-x/xxx/x-x", 50, "common");
 pattern("T", "xxx/-x-/-x-", 65, "uncommon");
 pattern("Four", "x-x/xxx/--x", 65, "uncommon");
-pattern("B2", "xxx/-xx/--x", 80, "rare");
-pattern("R pentomino", "-xx/xx-/-x-", 80, "rare");
+pattern("B2", "xxx/-xx/--x", 70, "rare");
+pattern("R pentomino", "-xx/xx-/-x-", 70, "rare");
 
 // Large
-pattern("Big I", "xxx/-x-/-x-/xxx", 220, "uncommon");
-pattern("Big G", "xxx/x--/x-x/xxx", 220, "uncommon");
+pattern("Big I", "xxx/-x-/-x-/xxx", 200, "uncommon");
+pattern("Big G", "xxx/x--/x-x/xxx", 200, "uncommon");
 pattern("Big S", "xx/x-/xx/-x/xx", 140, "rare");
 pattern("Big E", "xx/x-/xx/x-/xx", 140, "rare");
 
