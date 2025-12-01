@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import * as R from "./run";
-import { AchievementTracker, AchievementState } from "./achievements";
+import { AchievementTracker } from "./achievements";
+import * as A from "./achievements";
 import * as W from "./wave";
 import * as S from "./sound";
 
@@ -1702,7 +1703,7 @@ class AchievementsScene implements Scene {
       });
   }
 
-  static createAchievementElement(a: AchievementState): HTMLElement {
+  static createAchievementElement(a: A.AchievementState): HTMLElement {
     const div = document.createElement("div");
     div.classList.add("achievement");
     div.innerHTML = `
@@ -1920,7 +1921,7 @@ class RunOutcomeScene implements Scene {
 
 class AchievementOverlay {
   readonly element: HTMLElement;
-  queue: AchievementState[] = [];
+  queue: A.AchievementState[] = [];
   timer: number | null = null;
 
   constructor() {
@@ -1931,7 +1932,7 @@ class AchievementOverlay {
     document.body.appendChild(this.element);
   }
 
-  onUnlock(achievement: AchievementState) {
+  onUnlock(achievement: A.AchievementState) {
     this.queue.push(achievement);
   }
 
@@ -1999,9 +2000,34 @@ class Renderer {
       this.achievementOverlay.onUnlock(achievement);
     };
 
+    // Ctrl+Alt+\ to force win
     document.addEventListener("keydown", (e) => {
       if (e.key === "\\" && e.altKey && e.ctrlKey && this.run !== null) {
         this.setRunPhase(this.run.forceWin(), this.renewContext());
+      }
+    });
+    // Ctrl+Alt+s to download run logs; Ctrl+Alt+o to reset
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "o" && event.ctrlKey && event.altKey) {
+        A.RunLogs.reset();
+        console.info("Run logs reset");
+      }
+      if (event.key === "s" && event.ctrlKey && event.altKey) {
+        event.preventDefault();
+        if (A.RunLogs.logs.length === 0) {
+          console.info("No run logs to download yet");
+        } else {
+          const url = URL.createObjectURL(
+            new Blob([JSON.stringify(A.RunLogs.logs)], {
+              type: "application/json",
+            })
+          );
+          const anchor = document.createElement("a");
+          anchor.href = url;
+          anchor.download = `patternats-${new Date().toISOString()}.json`;
+          anchor.click();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
       }
     });
   }

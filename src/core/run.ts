@@ -137,7 +137,7 @@ export class Run {
   constructor(readonly s: RunSettings, readonly level: string) {
     this.items = s.items.slice();
     this.items.sort((a, b) => a.priority - b.priority);
-    AchievementTracker.onRunStart();
+    AchievementTracker.onRunStart(this);
   }
 
   totalWaves(): number {

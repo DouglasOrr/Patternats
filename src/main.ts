@@ -1,6 +1,6 @@
 import * as A from "./core/achievements";
-import * as R from "./core/run";
 import { Items } from "./core/items";
+import * as R from "./core/run";
 import "./core/sound";
 import * as V from "./core/view";
 import "./static/style.css";

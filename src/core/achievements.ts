@@ -4,6 +4,86 @@ import type * as W from "./wave";
 const Items = {} as Record<string, W.Item>;
 const Levels = {} as Record<string, R.Level>;
 
+// Run Logs
+
+type RunLogEvent = { select: string } | { score: number[] };
+
+class RunLog {
+  readonly time: string = new Date().toISOString();
+  readonly log: RunLogEvent[] = [];
+  currentWave: W.Wave | null = null;
+
+  constructor(readonly level: string) {}
+
+  select(name: string): void {
+    this.log.push({ select: name });
+    this.currentWave = null;
+  }
+
+  score(wave: W.Wave, total: number): void {
+    if (this.currentWave === wave) {
+      const back = this.log[this.log.length - 1];
+      if ("score" in back) {
+        back.score.push(total);
+        return;
+      }
+    }
+    this.log.push({ score: [total] });
+    this.currentWave = wave;
+  }
+
+  get record(): object {
+    return {
+      time: this.time,
+      level: this.level,
+      log: this.log,
+    };
+  }
+}
+
+const RUN_LOGS_KEY = "run_logs";
+
+class RunLogsImpl {
+  logs: object[] = [];
+
+  constructor() {
+    this.logs = RunLogsImpl.load();
+  }
+
+  static load(): RunLog[] {
+    const raw = localStorage.getItem(RUN_LOGS_KEY);
+    if (!raw) {
+      return [];
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
+    } catch (err) {
+      console.warn("Failed to parse run logs", err);
+    }
+    return [];
+  }
+
+  save(): void {
+    localStorage.setItem(RUN_LOGS_KEY, JSON.stringify(this.logs));
+  }
+
+  reset(): void {
+    this.logs = [];
+    this.save();
+  }
+
+  add(log: RunLog): void {
+    this.logs.push(log.record);
+    this.save();
+  }
+}
+export const RunLogs = new RunLogsImpl();
+
+// Achievements
+
 export interface Achievement {
   name: string;
   title: string;
@@ -298,6 +378,7 @@ class AchievementTrackerImpl {
   private playerStats: PlayerStats = new PlayerStats();
   private unlocks: Record<string, number> = {};
   private runStats: RunStats | null = null;
+  private currentRunLog: RunLog | null = null;
   onUnlock: ((achievement: AchievementState) => void) | null = null;
 
   constructor() {
@@ -348,9 +429,10 @@ class AchievementTrackerImpl {
 
   // Event Hooks
 
-  onRunStart(): void {
+  onRunStart(run: R.Run): void {
     this.runStats = new RunStats();
     this.playerStats.runsStarted++;
+    this.currentRunLog = new RunLog(run.level);
   }
 
   onRunEnd(run: R.Run, outcome: R.RunOutcome): void {
@@ -362,6 +444,10 @@ class AchievementTrackerImpl {
     }
     this.checkAchievements();
     this.runStats = null;
+    if (this.currentRunLog) {
+      RunLogs.add(this.currentRunLog);
+      this.currentRunLog = null;
+    }
   }
 
   onGridScored(wave: W.Wave, score: W.Score): void {
@@ -378,6 +464,9 @@ class AchievementTrackerImpl {
       this.playerStats.highestRunScore,
       this.runStats?.totalScore ?? 0
     );
+    if (this.currentRunLog) {
+      this.currentRunLog.score(wave, total);
+    }
     for (const component of score.components) {
       for (const match of component.matches) {
         this.playerStats.patternsMatched[match.pattern.name] =
@@ -413,6 +502,9 @@ class AchievementTrackerImpl {
   }
 
   onItemCollected(item: W.Item): void {
+    if (this.currentRunLog) {
+      this.currentRunLog.select(item.name);
+    }
     this.playerStats.itemsCollected[item.name] =
       (this.playerStats.itemsCollected[item.name] || 0) + 1;
     this.checkAchievements();
