@@ -464,9 +464,6 @@ class AchievementTrackerImpl {
       this.playerStats.highestRunScore,
       this.runStats?.totalScore ?? 0
     );
-    if (this.currentRunLog) {
-      this.currentRunLog.score(wave, total);
-    }
     for (const component of score.components) {
       for (const match of component.matches) {
         this.playerStats.patternsMatched[match.pattern.name] =
@@ -476,6 +473,10 @@ class AchievementTrackerImpl {
     for (const action of wave.usedActions) {
       this.playerStats.actionsUsed[action.name] =
         (this.playerStats.actionsUsed[action.name] || 0) + 1;
+    }
+
+    if (this.currentRunLog) {
+      this.currentRunLog.score(wave, total);
     }
 
     // Check

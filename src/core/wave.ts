@@ -502,12 +502,12 @@ export class Wave {
       return;
     }
     this.totalScore += this.score.total;
+    AchievementTracker.onGridScored(this, this.score);
     this.frame++;
     if (this.frame < this.s.maxFrames && this.totalScore < this.s.targetScore) {
       this.roll = -1;
       this.reroll();
     }
-    AchievementTracker.onGridScored(this, this.score);
   }
 
   reroll(): void {
