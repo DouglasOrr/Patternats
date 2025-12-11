@@ -942,15 +942,17 @@ class ProgressView {
     this.background.scale.set(innerW, innerH, 1);
 
     // Progress
+    const hoverScore =
+      this.hoverComponent !== null &&
+      this.hoverComponent < this.wave.score.components.length
+        ? this.wave.score.components[this.hoverComponent]
+        : null;
     const progressAll = this.animatedProgress(dt);
     let progress2 = 0;
     let progress1 = Math.min(progressAll, this.wave.score.total);
     const progress0 = Math.max(0, progressAll - progress1);
-    if (this.hoverComponent !== null) {
-      progress2 = Math.min(
-        progressAll,
-        this.wave.score.components[this.hoverComponent].score
-      );
+    if (hoverScore !== null) {
+      progress2 = Math.min(progressAll, hoverScore.score);
       progress1 = Math.max(0, progress1 - progress2);
     }
 
@@ -967,13 +969,12 @@ class ProgressView {
     }
 
     // Tooltip
-    if (this.hoverComponent !== null) {
-      const component = this.wave.score.components[this.hoverComponent];
+    if (hoverScore !== null) {
       this.context.tooltip.show(
         this,
-        component.score > 0,
+        hoverScore.score > 0,
         () => {
-          const explanation = component.scoreExplanation;
+          const explanation = hoverScore.scoreExplanation;
           const sep = "<br>&nbsp;&nbsp;&nbsp;&nbsp;";
           let text = "";
           if (explanation.multiplier !== 1) {
@@ -992,7 +993,7 @@ class ProgressView {
             text = text.slice(0, -sep.length);
           }
           return (
-            `− ${fmt_number(component.score)} nnats` + `<br>&nbsp;= ${text}`
+            `− ${fmt_number(hoverScore.score)} nnats` + `<br>&nbsp;= ${text}`
           );
         },
         [
@@ -1143,13 +1144,13 @@ class PanelView {
   private readonly actions: Button[];
   private readonly framePips: Pips;
   private readonly rerollPips: Pips;
-
-  private static readonly Controls = [
+  private readonly controlSpecs = [
     {
       name: "submit",
       tip: "Submit grid",
       click: (wave: W.Wave) => {
         wave.submit();
+        this.deselectActions();
         S.Effects.play("submit");
       },
       enable: () => true,
@@ -1159,6 +1160,7 @@ class PanelView {
       tip: "Reroll grid (can't be undone)",
       click: (wave: W.Wave) => {
         wave.reroll();
+        this.deselectActions();
         S.Effects.play("reroll");
       },
       enable: (wave: W.Wave) => wave.roll < wave.s.maxRolls,
@@ -1178,7 +1180,7 @@ class PanelView {
   ];
 
   constructor(private readonly wave: W.Wave, context: ViewContext) {
-    const controls = PanelView.Controls.map(
+    const controls = this.controlSpecs.map(
       (control) =>
         new Button(
           loadTexture(`img/control/${control.name}.png`),
@@ -1235,6 +1237,12 @@ class PanelView {
       4,
       context.scene
     );
+  }
+
+  private deselectActions(): void {
+    for (const button of this.actions) {
+      button.selected = false;
+    }
   }
 
   selectedAction(): number | null {
@@ -1501,6 +1509,7 @@ class MainMenuScene implements Scene {
     context.scene.background = Colors.background;
 
     this.element = document.createElement("div");
+    this.element.style.pointerEvents = "none";
     this.element.classList.add("screen");
     this.element.innerHTML = `<h1>Patternats</h1>`;
     document.body.appendChild(this.element);
@@ -1994,6 +2003,7 @@ class Renderer {
   private lastTime: number | null = null;
   private scene: Scene | null = null;
   private run: R.Run | null = null;
+  private readonly errors: any[] = [];
 
   constructor(s: { skipTo: Menu }, canvas: HTMLCanvasElement) {
     this.skipTo = s.skipTo;
@@ -2138,7 +2148,7 @@ class Renderer {
     this.camera.updateProjectionMatrix();
   }
 
-  private onAnimationFrame(time: number) {
+  private update(time: number) {
     // Preamble
     if (this.lastTime === null) {
       this.lastTime = time;
@@ -2159,7 +2169,27 @@ class Renderer {
     if (this.scene) {
       this.renderer.render(this.scene.context.scene, this.camera);
     }
-    requestAnimationFrame(this.onAnimationFrame.bind(this));
-    LOG.tick();
+  }
+
+  private onAnimationFrame(time: number) {
+    const max_errors = 3;
+    try {
+      this.update(time);
+      this.errors.pop();
+    } catch (e) {
+      console.error(e);
+      this.errors.push(e);
+      if (this.errors.length >= max_errors) {
+        alert(
+          "Error during render loop. Sorry :-(\n\n" +
+            (this.errors[0] as Error).stack?.toString()
+        );
+      }
+    } finally {
+      if (this.errors.length < max_errors) {
+        requestAnimationFrame(this.onAnimationFrame.bind(this));
+      }
+      LOG.tick();
+    }
   }
 }
